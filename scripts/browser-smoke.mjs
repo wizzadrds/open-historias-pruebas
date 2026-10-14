@@ -77,7 +77,8 @@ try {
   await page.screenshot({ path: artifactsDir + "/browser-smoke-menu.png", fullPage: true });
 
   // Exercise the real new-game flow using a fresh, disposable browser profile.
-  await page.getByRole("button", { name: "Start from a scenario", exact: true }).click({ timeout: 15_000 });
+  // This is an in-place React tab switch, not navigation; avoid waiting for unrelated startup navigations.
+  await page.getByRole("button", { name: "Start from a scenario", exact: true }).click({ timeout: 15_000, noWaitAfter: true });
   await page.getByRole("button", { name: "New Game", exact: true }).first().click({ timeout: 30_000 });
   await page.getByText("Choose your country", { exact: true }).waitFor({ timeout: 20_000 });
   await page.getByRole("button", { name: "Scenario default", exact: true }).click({ timeout: 15_000 });
