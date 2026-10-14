@@ -13,6 +13,7 @@
 //     files/background.json a suggested basemap, when there is one
 
 import { zipBundle, unzipBundle, looksLikeZip } from "./bundleZip.js";
+import { SCENARIO_LICENSE_FILE, SCENARIO_LICENSE_TEXT, scenarioLicense } from "./scenarioLicense.js";
 import { countChanges, summarizeChangesForComment } from "./scenarioChanges.js";
 import { SUGGESTION_MARKER } from "./hubPosts.js";
 
@@ -49,7 +50,7 @@ const KNOWN_KINDS = new Set([
   "polity-add", "polity-remove", "polity-change", "polity-rename",
   "city-add", "city-remove", "city-change", "cities-replace",
   "unit-add", "unit-remove", "unit-change",
-  "map-field", "background",
+  "map-field", "background", "projection",
 ]);
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const validChange = (change) => isRecord(change)
@@ -57,7 +58,8 @@ const validChange = (change) => isRecord(change)
   && KNOWN_KINDS.has(change.kind)
   && (change.area === "details" || change.area === "map")
   && (change.kind !== "field" || (Array.isArray(change.path) && change.path.every((part) => typeof part === "string")))
-  && (change.kind !== "borders" || Array.isArray(change.regions));
+  && (change.kind !== "borders" || Array.isArray(change.regions))
+  && (change.kind !== "projection" || (isRecord(change.to) && typeof change.to.type === "string"));
 
 export const normalizeSuggestion = (raw) => {
   if (!isRecord(raw) || raw.schema !== SUGGESTION_SCHEMA) {
@@ -131,7 +133,10 @@ export const buildSuggestionZip = async (suggestion) => {
     }
     return change;
   });
-  files["suggestion.json"] = JSON.stringify({ ...suggestion, changes });
+  // Suggested changes are under the same licence as the scenario they are
+  // for (scenarioLicense.js), and the file says so.
+  files["suggestion.json"] = JSON.stringify({ ...suggestion, changes, license: scenarioLicense() });
+  files[SCENARIO_LICENSE_FILE] = SCENARIO_LICENSE_TEXT;
   return zipBundle(files);
 };
 

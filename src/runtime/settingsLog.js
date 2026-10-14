@@ -35,6 +35,8 @@ import {
 } from "../Game/AI/providerConfig.js";
 import { isRatingEnabled, isTelemetryEnabled } from "../Game/AI/telemetry.js";
 import { requestDay, requestSettings } from "../Game/AI/requestBudget.js";
+import { presenceAllowed, presenceAvailable } from "./discordPresence.js";
+import { describeVisitConsent, readVisitConsent } from "./visitConsent.js";
 
 const onOff = (value) => (value ? "on" : "off");
 
@@ -56,6 +58,21 @@ registerSettingsSnapshot("Display", () => [
     ["Fullscreen", onOff(typeof document !== "undefined" && document.fullscreenElement)],
     // The umbrella switch: on exactly when both of the map's motion switches are.
     ["Reduce motion", onOff(getMapSetting(MAP_SETTING_KEYS.disableIdleRotation) && getMapSetting(MAP_SETTING_KEYS.disableEventCamera))],
+]);
+
+// Stored on, Discord is still only told by the desktop app and the local server
+// (runtime/discordPresence.js); the website and the Android app cannot reach it,
+// so there the file says the switch does nothing.
+const discordPresenceState = () => {
+    const state = onOff(presenceAllowed());
+    return presenceAvailable() ? state : `${state} (inactive: this build cannot reach Discord)`;
+};
+
+registerSettingsSnapshot("Privacy", () => [
+    ["Show what I am playing on Discord", discordPresenceState()],
+    // The answer the visit counters wait for (visitConsent.js): on only after
+    // a yes, and every other state says why it is off.
+    ["Count my visits", describeVisitConsent(readVisitConsent())],
 ]);
 
 registerSettingsSnapshot("Map", () => [
@@ -129,11 +146,6 @@ registerSettingsSnapshot("AI requests", () => {
         ["Requests a day your key allows", String(day.limit)],
         ["Background AI", onOff(requestSettings.backgroundAi())],
         ["Background requests a day, at most", String(day.backgroundCap)],
-        ["Move units to match the events", onOff(requestSettings.reviewSection("units"))],
-        ["Mark occupied and disputed land", onOff(requestSettings.reviewSection("territory"))],
-        ["Take repeats and filler off the timeline", onOff(requestSettings.reviewSection("timeline"))],
-        ["Keep the Projects board in step", onOff(requestSettings.reviewSection("board"))],
-        ["Collect your agents' reports", onOff(requestSettings.reviewSection("spies"))],
         ["Used today", `${day.used} of ${day.limit} (background ${day.background}, refused by rate limit ${day.refused}, failed ${day.failed})`],
         ["Used today, by task", tasks || "nothing yet"],
         ["Last time skip", day.lastJump ? `${day.lastJump.used} request(s)${day.lastJump.refused ? `, ${day.lastJump.refused} refused` : ""}` : "none yet"],

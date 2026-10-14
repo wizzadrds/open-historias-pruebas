@@ -29,6 +29,7 @@ import { unseenEvents } from "../../runtime/unseenEvents.js";
 import { isSceneInProgress } from "../AI/interactiveRewind.js";
 import { offeredEvent } from "../../runtime/interactiveOffer.js";
 import { normalizeMarkdown } from "./markdownText.js";
+import { TEXT_COMPONENTS } from "./markdown.jsx";
 import { useUnseenEventIds } from "./useUnseenEvents.js";
 import { isMainMenuOpen, useMainMenuOpen } from "./libraryBar";
 import {
@@ -51,6 +52,7 @@ import { useRuntimeState } from "../../runtime/useRuntimeState.js";
 import { MAP_SETTING_KEYS, getMapSettingDefaultOn, useMapSetting } from "../../runtime/mapSettings.js";
 import { formatGameDateReadable, isGameDate, normalizeGameDate } from "../../runtime/gameDates.js";
 import { jumpDayStep, jumpTargetDate } from "../../runtime/jumpDates.js";
+import { normalizeGroupOp } from "../../runtime/groups.js";
 
 dayjs.extend(advancedFormat);
 
@@ -120,7 +122,8 @@ const ensureTimelineStyles = () => {
 // normalizeMarkdown repairs the <br>/<b> tags it writes instead of markdown -
 // the same three the advisor and the chat have always had (markdown.jsx). The
 // card keeps its own stylesheet rather than borrowing .oh-md, which is sized for
-// a side panel.
+// a side panel. Its links and pictures are markdown.jsx's (TEXT_COMPONENTS): a
+// picture on another website is shown as a link, never fetched.
 const EVENT_REMARK_PLUGINS = [remarkGfm, remarkBreaks];
 
 const SpinnerRing = ({ size = 14, tone = "rgba(255,255,255,0.88)" }) => {
@@ -298,6 +301,19 @@ const describeEventMapChanges = (event, { polityLookup = new Map(), regionLookup
     }
     for (const claim of impacts.regionClaims ?? []) {
         lines.push({ kind: "claim", text: `${region(claim)}: ${claim.drop ? `${polity(claim.claimantCode)} drops its claim` : `claimed by ${polity(claim.claimantCode)}`}${note(claim.note)}` });
+    }
+    // Groups (runtime/groups.js): read through the normalizer, so a streamed
+    // card's "erase" reads as the dissolve it is.
+    for (const raw of impacts.groupOps ?? []) {
+        const op = normalizeGroupOp(raw);
+        if (!op) continue;
+        const names = op.regionIds.map((id) => regionLookup.get(id)?.name || id);
+        const where = names.length > 4 ? `${names.slice(0, 4).join(", ")} and ${names.length - 4} more` : names.join(", ");
+        if (op.op === "create") lines.push({ kind: "group", text: `${op.name}: a new group${where ? `, controlling ${where}` : ""}${note(op.note)}` });
+        else if (op.op === "dissolve") lines.push({ kind: "group", text: `${op.name}: erased, with the area it controlled${note(op.note)}` });
+        else if (op.op === "release") lines.push({ kind: "group", text: `${op.name} ${where ? `loses control of ${where}` : "loses its whole area"}${note(op.note)}` });
+        else if (op.op === "take") lines.push({ kind: "group", text: `${where || "No region"}: controlled by ${op.name}${note(op.note)}` });
+        else lines.push({ kind: "group", text: `${op.newName ? `${op.name} is now ${op.newName}` : `${op.name}: changed`}${where ? `, taking ${where}` : ""}${note(op.note)}` });
     }
     for (const change of impacts.polityChanges ?? []) {
         const verb = { create: "created", rename: "renamed", dissolve: "dissolved", restore: "restored", update: "updated" }[change.operation] || "updated";
@@ -612,7 +628,7 @@ let liveEventSeq = 0;
 // non-array: that throws in a render and blanks the panel. Dropped here once.
 const LIVE_EVENT_LISTS = [
     "regionTransfers", "regionControlOps", "regionClaims", "polityChanges",
-    "unitOps", "markerOps", "createdChats", "projectOps",
+    "unitOps", "markerOps", "createdChats", "projectOps", "groupOps",
 ];
 
 const liveEventCard = (event) => {
@@ -762,7 +778,10 @@ const ghostButtonStyle = {
 
 // What an event is about, as chips that fly the map there (eventFocus.js
 // deriveEventLinks). One glyph per kind, the same family as the map's own.
-const LINK_GLYPHS = { polity: "⚑", region: "⌖", unit: "⛊", structure: "▣" };
+// A chip is only ever a place the event named with its kind, something its
+// operations changed or a polity its structured fields name: a word in its
+// text that happens to be a place's name is not one.
+const LINK_GLYPHS = { polity: "⚑", region: "⌖", city: "●", unit: "⛊", structure: "▣", sea: "≈" };
 
 const LinkPill = ({ link, onFocus }) => (
     <button
@@ -811,7 +830,7 @@ const EventDocument = ({ report }) => {
         </button>
         {open && (
             <div className="timeline-markdown" style={{ borderTop: "1px solid rgba(251,191,36,0.12)", color: "rgba(228,228,231,0.84)", fontSize: "0.74rem", lineHeight: 1.55, padding: "0.55rem 0.8rem 0.7rem" }}>
-            <ReactMarkdown>{report.body}</ReactMarkdown>
+            <ReactMarkdown components={TEXT_COMPONENTS}>{report.body}</ReactMarkdown>
             </div>
         )}
         </div>
@@ -850,7 +869,7 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
     return (
         <div
         style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))",
+            background: "rgba(255,255,255,0.045)",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: "16px",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
@@ -912,7 +931,7 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
 
         {event.description && (
             <div className="timeline-markdown" style={{ color: "rgba(228,228,231,0.82)", fontSize: "0.77rem", lineHeight: "1.58" }}>
-            <ReactMarkdown remarkPlugins={EVENT_REMARK_PLUGINS}>{normalizeMarkdown(event.description)}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={EVENT_REMARK_PLUGINS} components={TEXT_COMPONENTS}>{normalizeMarkdown(event.description)}</ReactMarkdown>
             </div>
         )}
 
@@ -1096,7 +1115,12 @@ const RequestsTodayCaption = () => {
             clearInterval(timer);
         };
     }, []);
-    const cost = describeJumpCost({ saveRequests: savingRequests() });
+    // A skip is one request; function calling is what can add to it (Settings →
+    // AI: Save AI requests off, with the lookup functions on), up to `cost.max`.
+    // The switch is on unless turned off, so its value is read with that
+    // default; the hook is only what redraws this line when it is flipped.
+    useMapSetting(MAP_SETTING_KEYS.lookupFunctions);
+    const cost = describeJumpCost({ lookups: !savingRequests() && getMapSettingDefaultOn(MAP_SETTING_KEYS.lookupFunctions) });
     // A long skip split into segments (Settings → AI) pays one request a segment.
     const segmented = useMapSetting(MAP_SETTING_KEYS.chunkLongJumps);
     const nearlyOut = day.left <= Math.max(3, Math.ceil(day.limit * 0.1));
@@ -1107,9 +1131,15 @@ const RequestsTodayCaption = () => {
         >
             <span data-no-translate>{day.used}</span> of <span data-no-translate>{day.limit}</span> AI requests used today
             <br />
-            {cost.capped
-                ? <>a skip uses <span data-no-translate>{cost.min}</span>, at most <span data-no-translate>{cost.max}</span>{segmented ? ", plus one per extra segment" : ""}</>
-                : <>a skip can use twenty or more</>}
+            {/* A whole line, one string, in an element of its own, so a language
+                pack translates the sentence and not its pieces (docs/i18n.md). */}
+            <span>
+                {cost.lookups
+                    ? (segmented
+                        ? `a skip uses 1 request, at most ${cost.max} when the model looks things up, plus one per extra segment`
+                        : `a skip uses 1 request, at most ${cost.max} when the model looks things up`)
+                    : (segmented ? "a skip uses 1 request, plus one per extra segment" : "a skip uses 1 request")}
+            </span>
             {day.lastJump ? <> · the last used <span data-no-translate>{day.lastJump.used}</span></> : null}
         </div>
     );
@@ -2974,10 +3004,12 @@ const DateWidget = ({
         eventDocuments: (event) => documentsForEvent(documentReports, event?.id, documentPlayer),
     }), [lookups, currentFocusContext, mapRef, documentReports, documentPlayer]);
 
-    // The camera follows EVERY revealed event — impacts pin the exact spot,
-    // otherwise the polities the event involves do, and its own words are the
-    // last resort. Opt out via the "Disable camera movement during events" map
-    // setting.
+    // The camera follows a revealed event to where it happened: its impacts
+    // pin the exact spot, then the places it names with their kind, then the
+    // polities its structured fields involve. Never its words: an event that
+    // gives none of these leaves the camera where it is (eventFocus.js). Opt
+    // out via the "Disable camera movement during events" map
+    // setting (or Reduce motion, or the system's reduced-motion setting).
     useEffect(() => {
         if (!activeVisibleEvent || disableEventCamera) {
             return;

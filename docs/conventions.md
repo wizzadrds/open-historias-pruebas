@@ -197,6 +197,8 @@ Tests use the **built-in Node test runner** (`node --test`) with `node:assert/st
 |-----------|--------|
 | `server/security.test.js` | Path containment, the CSRF/origin guard, HTTP range parsing, the hub host allowlist (`server/security.js`). |
 | `server/ownerMigration.test.js` | The owner-code → owner-name resolver, with fixtures transcribed from real shipped scenario data (`server/ownerMigration.js`). |
+| `src/Game/AI/foldedSkip.test.js` | The one-request time skip: when a refusal is the contract's fault, a board op applied once, a report to its own agent, and the wiring read from `gameplay.js` (`foldedSkip.js`). |
+| `src/Game/AI/schemaOutline.test.js` | A schema written out as the shape of an answer, and that a Gemini skip is asked for with it and no schema (`schemaOutline.js`). |
 
 Convention when adding tests: colocate a `*.test.js` next to the module under `server/`, keep the tested functions **pure** so they need no server, and prefer real transcribed fixtures over invented ones (`server/ownerMigration.test.js:3-7`). The `server/**/*.test.js` glob picks them up automatically. The client (`src/`) has no automated test suite; render-path changes are verified by actually booting the app.
 
@@ -243,7 +245,7 @@ Rules of thumb:
 - **To change a map file:** upload the new asset to the `map-data` release, then update its `sha256` + `bytes` in `scripts/map-assets.json`. `fetch-map-assets.mjs` re-downloads any listed file that's missing or hash-mismatched.
 - **The builds actively drop these from the bundle** — `vite.config.ts`'s `dropMapBinaries` plugin deletes the pmtiles (and, for web, the editor seeds) after copy, because Cloudflare Pages rejects any file over 25 MiB and nothing loads a pmtiles archive from the bundle anyway (the desktop streams them off disk via `/api/runtime/pmtiles/:assetKey`; the web build fetches them from content nodes, hash-verified). Don't defeat this plugin. See [Assets & data](assets-and-data.md).
 
-Related gitignored-but-not-in-LFS runtime artifacts you also shouldn't commit: `/fmg/` (vendored Fantasy Map Generator, fetched by `scripts/fetch-fmg.mjs`), `/src/runtime/web/generated/` (web seed), `/node-content/` (content-node store), and the offline signing keys `trust/*.key.pem` / `*.key` (**never commit a signing key**).
+Related gitignored-but-not-in-LFS runtime artifacts you also shouldn't commit: `/fmg/` (the game's copy of the Fantasy Map Generator, fetched and prepared by `scripts/fetch-fmg.mjs`; the desktop installers pack it), `/src/runtime/web/generated/` (web seed), `/node-content/` (content-node store), and the offline signing keys `trust/*.key.pem` / `*.key` (**never commit a signing key**).
 
 ---
 

@@ -19,7 +19,7 @@ This page is the map of the codebase. Each subsystem has its own page; follow th
 | Charts | Chart.js 4 (stats panel) | `src/Game/GameUI/stats.jsx` |
 | Desktop/mobile server | Express 5 | `server/server.js`, `mobile/nodejs-project/` |
 | Signing / trust | `@noble/ed25519` (content manifests, node directory) | `trust/`, `src/runtime/web/contentTrust.js` |
-| Bundled tools | Azgaar Fantasy Map Generator (vendored) | `fmg/`, `scripts/fetch-fmg.mjs` |
+| Map generator (desktop installers and source checkouts) | Azgaar Fantasy Map Generator: a prepared copy that reaches no outside host, packed by the installers; the Workshop hides its Generate tab where there is none (web, Android) | `fmg/`, `scripts/fetch-fmg.mjs`, `scripts/fmg-vendor.mjs` |
 | Basemap raster tiles | ESRI/ArcGIS Online (public, token-free) + terrarium DEM (AWS) | `src/runtime/assets.js:82` |
 
 The heavy map binaries (`regions.pmtiles` ~101 MB, `countries.pmtiles`, `cities.pmtiles`, plus editor seed geojson) are **never bundled** — see [Map assets & PMTiles](assets-and-data.md). They live in `public/assets/`, are gitignored, and are fetched from a GitHub "map-data" Release on first launch. A Vite plugin (`dropMapBinaries`, `vite.config.ts:43`) deletes them from every build output so Cloudflare Pages' 25 MiB/file limit is never hit.
@@ -44,8 +44,8 @@ The whole web branch hinges on one boolean literal, injected by Vite's `define`:
 'import.meta.env.VITE_OH_WEB': JSON.stringify(mode === 'web')   // vite.config.ts:75
 ```
 
-- `vite build` (any mode ≠ `web`) → `VITE_OH_WEB` is `false`. Rollup dead-code-eliminates every `if (import.meta.env.VITE_OH_WEB)` branch **and the dynamically-imported web backend** (`src/runtime/web/*`), so the desktop/Android bundle never pulls in IndexedDB stores, accounts, or the web-only generated seed files. This is why a fresh desktop extract (which has never run a web build) still builds and boots.
-- `vite build --mode web` → `VITE_OH_WEB` is `true`, and Vite additionally loads `.env.web` (`VITE_OH_PMTILES_URL`, `VITE_OH_HUB_URL`, `VITE_OH_ACCOUNT_URL`, `VITE_OH_DIRECTORY_URL`, `VITE_OH_GOOGLE_CLIENT_ID`). See [Web build & accounts](web-build.md).
+- `vite build` (any mode ≠ `web`) → `VITE_OH_WEB` is `false`. Rollup dead-code-eliminates every `if (import.meta.env.VITE_OH_WEB)` branch **and the dynamically-imported web backend** (`src/runtime/web/*`), so the desktop bundle never pulls in IndexedDB stores or the web-only generated seed files. This is why a fresh desktop extract (which has never run a web build) still builds and boots.
+- `vite build --mode web` → `VITE_OH_WEB` is `true`, and Vite additionally loads `.env.web` (`VITE_OH_PMTILES_URL`, `VITE_OH_HUB_URL`, `VITE_OH_DIRECTORY_URL`). See [Web build](web-build.md).
 
 The one place the flag is read at boot is `src/main.jsx:28` (below). Because the web backend is behind a **dynamic `import()`**, the desktop build never even references the module.
 
@@ -116,9 +116,9 @@ Both `<Map>` and `<UI>` are keyed on `activeGameId` (not the library token) so a
 | `site/` | Marketing homepage shell wrapped around `/play/` by `build:site` |
 | `mobile/` | Android app: Capacitor (`android/`, `www/`, `capacitor.config.json`) + `nodejs-project/` embedded server |
 | `node-content/` + `server/node.js` | Content-node server (hash-addressed, read-only) — see [Content nodes](assets-and-data.md) |
-| `fmg/` | Vendored Azgaar Fantasy Map Generator (served at `/fmg` for the editor's Generate console) |
+| `fmg/` | The game's prepared copy of Azgaar's Fantasy Map Generator (gitignored; fetched by `scripts/fetch-fmg.mjs`, packed by the desktop installers, served at `/fmg` for the editor's Generate drawer) |
 | `trust/` | Ed25519 root key material + `pinned-key.js` for content/directory verification |
-| `tools/import-counter/` | Cloudflare Worker: self-hosted scenario-import counter |
+| `tools/import-counter/` | Cloudflare Worker: the retired import counter. It keeps answering older game builds from the hub's index and stores nothing; this build does not call it ([delivery-and-deploy.md §7.1](delivery-and-deploy.md)) |
 | `hub-templates/` | GitHub issue templates for the community scenario/basemap hub |
 | `dist/`, `dist-web/`, `dist-site/` | Build outputs (desktop, web, assembled site) |
 | `vite.config.ts`, `index.html`, `.env.web` | Build config + web-mode env |
@@ -134,7 +134,7 @@ Both `<Map>` and `<UI>` are keyed on `activeGameId` (not the library token) so a
 | `src/Game/Selection/` | Click-target popups: `Regions.jsx`, `CountryPanel.jsx`, `Units.jsx`, `Features.jsx` | [Selection & popups](game-ui.md) |
 | `src/Game/AI/` | AI turn engine: `main.jsx` (provider chat), `gameplay.js`, `gameplayPrompts.js`, `gameplaySchemas.js`, `promptContext.js`, `providerConfig.js`, `defaultPrompts.json` | [AI system](ai-overview.md) |
 | `src/runtime/` | Client "kernel": asset/endpoint layer, game/world state, library catalog, preload, i18n, startup UI | below |
-| `src/runtime/web/` | **Web-only** backend (dead-code-stripped from desktop): `index.js`, `router.js`, IndexedDB stores, accounts, sync, nodes, home page | [Web build & accounts](web-build.md) |
+| `src/runtime/web/` | **Web-only** backend (dead-code-stripped from desktop): `index.js`, `router.js`, IndexedDB stores, nodes, home page | [Web build](web-build.md) |
 | `src/Editor/` | OpenLayers map editor (author custom maps) | [Map editor](map-editor.md) |
 
 ### `src/runtime/` (the client kernel)
@@ -202,7 +202,7 @@ The client **never** talks to storage directly. Every state read/write is a same
 | `/api/basemaps…`, `/api/flags…` | GET/POST/DELETE | `basemapStore.js`, `flagStore.js` |
 | `/api/ui-settings`, `/api/lang/:code` | GET/PUT | shared UI language + accumulated translation packs |
 | `/api/ai/relay` | POST | Server-to-server relay to the player's OpenAI-compatible AI endpoint (defeats CORS) |
-| `/api/hub/file`, `/api/hub/import-log`, `/api/hub/import-counts` | GET/POST | Community hub GitHub proxy (SSRF-guarded to GitHub hosts) + self-hosted import counter |
+| `/api/hub/file` | GET | Community hub GitHub proxy (SSRF-guarded to GitHub hosts). The page asks it for the hub's checked copies only; the hub's list of posts and the import counts are read by the page from the hub's own index, not through the server |
 | `/api/server/shutdown` | POST | Exits the process (no button in the beta UI any more; scripts and the launcher) |
 | `/fmg/*`, `*splat` | GET | Vendored FMG static + SPA fallback (`index.html`) |
 
@@ -235,7 +235,7 @@ Gameplay writes flow: **AI turn / cheat / UI action → `gameState.js` write →
 | **Map editor** | `?editor=1` route, OpenLayers, authors custom region/city/basemap maps, exports scenario bundles; can run the vendored FMG generator | [Map editor](map-editor.md) |
 | **Community hub** | Scenario/basemap sharing via GitHub issues; server/Worker proxies downloads and counts imports | [Community hub](runtime-services.md) |
 | **Content nodes** | `server/node.js` — anyone-runnable, hash-addressed, read-only file server that offloads map-tile/bundle delivery; client re-verifies every byte against the signed manifest | [Content nodes](assets-and-data.md) |
-| **Web accounts + sync** | Google sign-in + E2E-encrypted game/scenario sync against the registry Worker (web build only) | [Web build & accounts](web-build.md) |
+| **Web saves** | No accounts and no sync: games and scenarios stay in this browser (IndexedDB) and move with game export/import (web build only) | [Web build](web-build.md) |
 | **i18n** | shipped language packs translate the interface (22 languages); the AI translates only content, once, into the server's pack; the prompts' guidance ships translated | [Languages & Translation](i18n.md) |
 
 ---

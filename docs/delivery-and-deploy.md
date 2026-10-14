@@ -67,6 +67,7 @@ Delivery leans on **rolling releases** (fixed tags whose assets are re-uploaded 
 |---|---|---|---|---|---|
 | `app-stable` | `app-bundle.yml` | push to `main` | `Open-Historia.zip` (source + map data) | no (`--latest=false`) | One-download desktop install, stable |
 | `app-beta` | `app-bundle.yml` | push to `beta` | `Open-Historia.zip` | no (`--latest=false`) | One-download desktop install, beta |
+| `desktop-stable-chunks`, `desktop-beta-chunks` | the same two workflows (`scripts/publish-update-chunks.mjs`) | the same runs | The app's own files cut into chunks: `c-<hash>.bin` (about 180 a build, each uploaded once), the manifests `m-<hash>.json`, and one head per system, `payload-{win,mac,linux}.json`, the only files replaced | no (`--latest=false`) | The desktop app, which updates by fetching the chunks that changed (§11.2). Nothing here is downloaded by hand |
 | `android` | `android-apk.yml` | `workflow_dispatch` from `main` / `android-v*` tag | `open-historia.apk`, `latest.json` | no | The Android app (the `appId` in `mobile/capacitor.config.json`); it self-updates from here |
 | `android-beta` | `android-apk-beta.yml` (§4.3) | `workflow_dispatch` from `beta` / `android-beta-v*` tag | `open-historia-beta.apk`, `latest.json` | **yes** (`--prerelease`) | The Android beta, "Open Historia Beta" (the stable id + `.beta`): a second app beside the stable one, with its own saves; it self-updates from here |
 | `map-data` | *manually uploaded* | — | `regions.pmtiles`, `countries.pmtiles`, `cities.pmtiles`, `cities-seed.json`, `regions-seed-z8.geojson`, `default-regions-names.geojson` | — | The ~200 MB world-map binaries, off Git LFS (§7) |
@@ -219,29 +220,32 @@ Two Cloudflare Workers deploy alongside the site so merged worker code can never
 
 ## 7. Cloudflare Workers (the control/edge plane)
 
-### 7.1 Import counter — `tools/import-counter/`
+### 7.1 Import counter — `tools/import-counter/` (retired)
 
-A tiny Worker that counts community-scenario imports. The game server pings it once per successful install via `server/server.js` → `/api/hub/import-log` (`server/server.js:657`), giving real numbers even for scenarios GitHub can't count (issue attachments).
+A scenario's import count is how many times its file has been downloaded from the community hub's **releases**, as GitHub counts it. The hub repository's workflow checks each post's attachment, puts a checked copy of it in a release, adds the downloads up every half hour, and writes them to `index.json` on its `hub-index` branch, with where each copy is, the list of released posts and the suggestions it has checked; the game reads that file from `raw.githubusercontent.com` (`src/runtime/hubFiles.js`), which costs no API request. That index is also the game's only list of the hub's posts, and the copies it names are the only hub files the game downloads: a post's own attachment is never fetched, and GitHub's API is asked for nothing but a post's comments. See [runtime-services.md](runtime-services.md).
+
+Until 2026-10-05 the count was kept by this Worker in KV, pinged once per install through `/api/hub/import-log`. One KV `list()` per read of `/counts` and a write per import spent the free plan's daily KV allowance within hours of every day, after which nobody saw any counts. Those routes, `OH_IMPORT_COUNTER_URL` and the ping are gone from the game.
+
+Builds from before the change still call the Worker, so it still answers them, from the hub's index, and stores nothing (`worker.js`; `server/importCounterWorker.test.js`):
 
 | Item | Value |
 |---|---|
 | Worker name | `oh-import-counter` (`tools/import-counter/wrangler.toml`) |
-| Entry | `worker.js` |
-| Storage | KV binding `IMPORTS` (counts live in each key's metadata so `/counts` is one list call) |
-| Default URL baked into the app | `https://oh-import-counter.nichojkrol.workers.dev` (`server/server.js:654`) |
-| Override | `OH_IMPORT_COUNTER_URL` env on the game server |
-| Dedup | Website: once per **account _and_ IP** (skip if either seen); app/anonymous web: once per **IP**. Raw IPs never stored — hashed with `HASH_SALT` |
-| Read routes | `/counts` (all), `/count/<hub-issue-number>` (one) |
+| `GET /counts`, `GET /count/<post>` | The hub index's counts, in the shapes the old builds read; the index is kept five minutes at the edge |
+| `POST /hit` | Accepted and ignored. An import made by a build that downloads the attachment is therefore not counted; one made by a build that downloads the release copy is counted by GitHub |
+| Storage | None. The `IMPORTS` KV binding is unused and can be removed with the namespace; what it had counted is carried in the hub's numbers (`data/legacy-import-counts.json` there) |
+
+It rides the site deploy from the admin panel (§6.1).
 
 ### 7.2 Node registry — `open-historia-admin/registry/`
 
-The web-mode control plane (source of truth: the admin repo). Serves the signed node directory, proxies map content, and hosts hub + accounts. Worker name `open-historia-registry`.
+The web-mode control plane (source of truth: the admin repo). Serves the signed node directory, proxies map content, and hosts hub + accounts. Worker name `open-historia-registry`. The game itself no longer calls the account, sync or presence routes: accounts were removed from the web build (see [web-build.md §10](web-build.md#10-accounts-and-sync-removed)).
 
 | Binding | Kind | Purpose |
 |---|---|---|
 | `NODES` | KV | Small hot keys + TTL items (magic-link tokens, sessions via `acct:`/`magic:`/`sess:` prefixes) |
 | `OH_ACCOUNTS` | D1 (`oh-accounts`) | Nodes table, users, sessions, wrapped account keys, encrypted sync blobs; schema in `registry/schema.sql` |
-| `IMPORT_COUNTER` | Service binding → `oh-import-counter` | Direct binding because a Worker can't reach another same-account Worker via its public `workers.dev` URL (subrequest silently never arrives) |
+| `IMPORT_COUNTER` | Service binding → `oh-import-counter` | For the older builds' `/hub/import-log` and `/hub/import-counts` (§7.1; this build calls neither). A direct binding because a Worker can't reach another same-account Worker via its public `workers.dev` URL (subrequest silently never arrives) |
 | `EMAIL` | Email Sending | Magic-link emails, sent by the Worker itself |
 
 The **admin panel** (`open-historia-admin/panel/server.js`) is the human interface to the registry: it lists nodes, accepts/pauses/bans/rate-limits/redirects them, and after **any** change rebuilds the node directory, signs it with the offline root key (`oh-root.key.pem`), and POSTs it to the registry, which serves it live to players and nodes (`panel/server.js:66`). No game rebuild is needed for a directory change.
@@ -253,8 +257,7 @@ The web game points at the registry through build-time env (`.env.web`):
 | `VITE_OH_WEB` | `1` | The compile-time web/desktop switch |
 | `VITE_OH_PMTILES_URL` | `…workers.dev/content` | Map tiles served/proxied by the registry |
 | `VITE_OH_DIRECTORY_URL` | `…/node-directory.json` | The signed content-node directory |
-| `VITE_OH_HUB_URL` / `VITE_OH_ACCOUNT_URL` | `…workers.dev` | Scenario hub + magic-link accounts/sync |
-| `VITE_OH_GOOGLE_CLIENT_ID` | *(client id)* | Google sign-in |
+| `VITE_OH_HUB_URL` | `…workers.dev` | Scenario hub proxy |
 
 ---
 
@@ -307,7 +310,7 @@ It reads only from `server/seed/default`, which **is** committed (map included) 
 | **Android (stable)** | `main` | `open-historia.apk` on `android` | `android-apk.yml` (dispatch from `main` / `android-v*` tag) | Install once; the app self-updates from `android/latest.json` |
 | **Android (beta)** | `beta` | `open-historia-beta.apk` on `android-beta` | `android-apk-beta.yml` (dispatch from `beta` / `android-beta-v*` tag) | Install from the pre-release, beside the stable app; self-updates from `android-beta/latest.json` |
 | **Website** | `main` | `dist-site/` | Admin-panel 🚀 button → clean `upstream/main` worktree → `build:site` → `wrangler pages deploy` (or legacy `deploy-site.yml`) | Nothing — next page load |
-| **Import counter Worker** | `main` | `tools/import-counter/worker.js` | Rides the admin-panel site deploy from the same worktree | — |
+| **Import counter Worker** (retired, §7.1) | `main` | `tools/import-counter/worker.js` | Rides the admin-panel site deploy from the same worktree | — |
 | **Registry Worker** | admin repo | `registry/worker.js` | Rides the site deploy from the admin repo dir | — |
 | **Node directory** | *runtime data* | signed JSON | Admin panel re-signs + POSTs to the registry on any node change | Live, no rebuild |
 | **Map binaries** | *manual* | Release assets | Uploaded to `map-data`; fetched by `fetch-map-assets.mjs` at launch/update/bundle | Downloaded on first run |
@@ -319,8 +322,34 @@ Key asymmetries a newcomer should internalize:
 - **Worker code and website move together** through the admin-panel deploy engine, precisely to stop merged worker code from sitting undeployed.
 - **Map data is decoupled from code** — a code release does not re-cut the map; a map change is a manual Release upload + manifest edit.
 
----
+### 11.1 How an installed desktop game updates
 
+Opening the game installs a waiting update; the update banner (`src/runtime/AppUpdateBanner.jsx`) is for an update found while the game is already open.
+
+- **As the game opens** (Windows, Linux): `electron/launchUpdate.cjs`, from `boot()` in `electron/main.cjs` before the map check and the server: `checkForUpdates` against the release's `latest*.yml`, capped at 6 s. Nothing newer, offline or slow: no window, the game opens. An update: the setup window shows "Updating Open Historia" with its progress, then `quitAndInstall(true, true)` (silent, reopens on the new version). **Open the game now** opens the game at once; the download carries on and installs when the game is closed (`autoInstallOnAppQuit`), and the banner shows how far it got.
+- **The beta offer:** the stable app's update screen also offers **Download the beta** (`betaOffer`, `setup:open-beta`): the beta's Windows installer, or its release page on other systems, opened in the player's browser while the update goes on. The beta is a separate app with its own saves, and its own update screen makes no such offer.
+- **A version that fails to download at launch twice** is left to the banner (`launch-update.json` in the app's user-data folder); a newer version starts again from zero.
+- **While it is open:** the banner. **Update now** downloads, **Restart now** installs.
+- **Downloads are always full** (`disableDifferentialDownload`): every installer is published under one fixed name on a rolling release, so the old block map electron-updater would compare against is the new one.
+- **macOS:** an update made of chunks installs itself as on the other systems (§11.2; not yet run on a Mac). One that needs the installer does nothing at launch (Squirrel.Mac needs a signed app, and the build is unsigned); the banner links to the new zip.
+
+Tests: `server/launchUpdate.test.js`.
+
+### 11.2 An update made of chunks
+
+The installer is about 140 MB, and an update used to be all of it again, although most of it had not changed: the Electron runtime never, and most of the app's own files not either. So a release also publishes the app's own files (everything inside `app.asar`: the built client, the server, the language packs, the node modules: thousands of files) cut into chunks, each a file of its own on a release, and an installed app fetches only the chunks it cannot make from the files it already has. What §11.1 describes is unchanged by it: the same check as the game opens, the same screen, the same banner. What is fetched is smaller, and there is no installer to run.
+
+- **Cutting** (`electron/payloadChunks.cjs`, run by `scripts/build-update-chunks.mjs` on what electron-builder packed). A file of 256 KB or more is cut where its own content says to: a rolling hash decides, never before 256 KB and always by 4 MB, so an edit moves the cuts around the edit and nowhere else, and the chunks before and after it are last release's. A smaller file shares a chunk, a *pack*, with other small files of its own part of the app (24 packs for `node_modules`, 24 for `dist`, 16 for `server`, 4 for the rest), chosen by its name without the build's stamp, so a rebuilt `index-<hash>.js` stays in its pack and an edited server file does not cost a slice of the node modules. Every number is fixed, because the app cuts the files it has the same way to find their chunks; changing one needs a new `FORMAT`.
+- **Measured** on packed builds of the alpha branch, where this was written and whose app is the larger one (142 MB in some 9,500 files): 183 chunks, the largest 3.0 MB. A second build with one line changed in the client and one in the server had 162 of them unchanged: 21 chunks, 11.4 MB, to fetch (Vite renamed 33 bundles for that one line, which is most of it). The app's own updater took 15 s to do it from a local server, nearly all of it putting the 9,500 files in place. This branch's own builds have not been measured.
+- **Publishing** (`scripts/publish-update-chunks.mjs`). A chunk is `c-<hash>.bin` on the `desktop-stable-chunks` or `desktop-beta-chunks` release (§3), named by its content, so one already there is the same bytes and is never uploaded again or replaced. The manifest, which lists every file with its hash and its parts (2.3 MB), goes up the same way as `m-<hash>.json`. Last goes the head, `payload-win.json` / `payload-mac.json` / `payload-linux.json`: 300 bytes under a fixed name, saying which build is published, the Electron it runs on and which manifest describes it. So an app is never told of a build whose chunks are not all there. The three systems' builds share every chunk their files share. A release holds 1,000 files, so old chunks come off: the last job of each workflow, `prune-chunks`, runs `--prune-only` once every system's build of the release is up, and removes the chunks and manifests no head leads to any more. It never removes what a head leads to (a system whose build failed keeps its old head, and its chunks), nor anything uploaded in the last six hours, which a publish still under way may be about to name. A publish that would fill the release stops, with a message, before it starts.
+- **Updating** (`electron/payloadUpdate.cjs`). The app reads the head, which is all a start with nothing newer fetches. For a newer build on its own Electron it reads the manifest (checked against the hash the head gives), hashes the files it has, fetches the chunks it lacks (four at a time; each checked against its name; three attempts; a chunk fetched before a failure or a Cancel is kept for the next attempt) and puts the new set together under `<userData>/app-payload/<build>/`. An unchanged file is copied (or linked, from a set an earlier update made); a changed one is made of the chunks read out of the old file and the ones fetched. Every file is checked against the manifest before it is written, and only then is `app-payload/current.json` written. Nothing touches the files that are running, and a failure at any point leaves the app as it was.
+- **Starting** (`electron/bootstrap.cjs`, which is `package.json`'s `main`; the rules are in `electron/payloadBoot.cjs`). A start runs the newer set when it is finished, newer than what the installer put down (so an installer run since then wins), built for this Electron and this `PROTOCOL`, and has not failed to start twice: a start counts as failed until the game's window is up (`globalThis.__ohPayload.confirm()`, from `main.cjs`), and a set given up on is never fetched again. Otherwise the installed files run, as before. The Desktop log's `app.files` line says which. `OH_NO_PAYLOAD=1` makes a packaged app run its installed files, to tell a fault in an update from a fault in the app.
+- **When the installer still updates** (`electron/layeredUpdate.cjs`, the one updater the launch screen and the banner's routes drive; it has electron-updater's methods and events). A release packed with another Electron, or with a higher `PROTOCOL`: raise that when a release changes anything only the installer can change (packaging, files kept outside the archive, what the bootstrap does). A set this app could not start from. Chunks that cannot be looked up, fetched or put together: the same release is then taken whole. After an update made of chunks the installed files are the older ones, so the installer's feed offering the version that is running is not an update.
+- **Not covered:** the Android app (Android installs an APK whole) and the website (a browser already fetches only the files that changed).
+
+Tests: `server/payloadChunks.test.js`, `server/payloadUpdate.test.js` (a release on a local server, end to end), `server/updateChunksRelease.test.js`. `OH_PAYLOAD_FEED=http://127.0.0.1:<port>/` points a packaged build at a release served from the same machine, and from nowhere else.
+
+---
 ## 12. Traps & invariants
 
 - **Never re-add map binaries to Git LFS** — they live on the `map-data` Release only (§8).
@@ -337,4 +366,4 @@ Key asymmetries a newcomer should internalize:
 
 - [World state](world-state.md) — the `world.json` shape that scenarios and the web seed carry
 - [Web mode & content nodes](web-build.md) — how the browser build resolves map data from the signed directory
-- [Scenario hub](runtime-services.md) — the import flow that feeds the import counter
+- [Scenario hub](runtime-services.md) — the hub's index: its posts, its checked files and the import counts

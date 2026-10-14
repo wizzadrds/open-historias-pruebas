@@ -100,6 +100,8 @@ Applied on `onMove` **and** `onIdle`, so the soft ratio is in effect from the ve
 
 ## 3. The base style (`buildWorldStyle`)
 
+The basemap the style is built for is `resolveBasemapId`: the player's pick in Settings → Map (`map_basemap_style`, this device only) when it is a built-in id, else the scenario's `world.basemap`, else `DEFAULT_BASEMAP_ID`. The pick replaces a built-in basemap only (`basemapOverrideFor`, `assets.js`): a scenario with a map of its own (`world.background`: a picture, a drawn map, or the plain sea of a flat sheet) keeps it, since its regions are drawn for that map, and Settings shows the pick switched off there (`BasemapField`).
+
 `buildWorldStyle(basemapId, customBg, backgroundDeclared, isGlobe, terrainEnabled, offline)` (`World.jsx`) returns a MapLibre style JSON. It picks **one of five** branches:
 
 | # | Condition | Sources | Layers |
@@ -219,6 +221,12 @@ Claimants come from `world.regionClaimants[id]` first (how the modern-world scen
 
 - `custom-regions-disputed-vnext` — the worker's `disputedData` (every claimant-carrying region with its live owner and claimants), striped at `0.90` whenever `customActive && worldKnown`.
 - `regions-disputed` — the tile twin for GADM disputed regions (uses `disputedTileStops`, opacity `TILE_FILL_FADE`), excluding `editedStockIds`.
+
+### 6b. Group areas
+
+A group (`world.groups`, `world.groupAreas`; `src/runtime/groups.js`) controls an area without owning it, and the map draws that over the owners' colours: a light tint in the group's colour (`group-areas-tint`, fill opacity `0.2`, above every fill and stripe), one outline around the whole area (`group-areas-outline` over `group-areas-outline-casing`, above the sovereign borders) and the group's name (`group-areas-labels`, below cities, structures and units). All four ids are in `MAP_LAYER_ORDER`.
+
+The shapes come from the regions worker, asked outside the political pipeline — a group moves no owner and no border — with a `group-areas` message that `Nations.jsx` sends once this worker has published `catalog-ready` (and again when repaired shapes land, and whenever `useWorldState`'s `groups` / `groupAreas` change); only the newest answer is drawn. `vnext/groupAreas.js` cuts the outline from the frontier topology, never from a polygon union: an edge is on it when a region outside the group shares it or no region does (the coast), unless it is a seam whose two sides were simplified apart and recovered as a run between two members. On the built-in map that is one closed ring for Syria, 67 for Indonesia's islands and ≤17 ms for Russia. The tint is each member region's shape (the repaired one where there is one), one surface per group. The region card (`Selection/Regions.jsx`) says **Group control** with the group's colour, name and description.
 
 `DISPUTED_TERRITORY_CLAIMANT` (`Nations.jsx:338`) maps GADM's `Z01`–`Z09` disputed codes (Kashmir, Aksai Chin, Arunachal Pradesh…) to a claimant country so the map shows `"Disputed (India)"` instead of a bare `"Z01"` label.
 

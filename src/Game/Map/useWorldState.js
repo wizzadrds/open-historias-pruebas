@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { JSON_URLS, readJson, reportPerfOperation } from "../../runtime/assets.js";
 import { recordMapTrace, recordMapWork } from "../../runtime/mapPerfTrace.js";
 import { buildOwnerAliasMap, createOwnerResolver } from "../../runtime/ownerNames.js";
+import { mapViewOf } from "../../../server/mapProjection.js";
+import { normalizeGroupAreas, normalizeGroups } from "../../runtime/groups.js";
 
 // Map-facing world store — R5.0 event-driven edition.
 //
@@ -145,6 +147,9 @@ const deriveMapState = (state) => ({
   customCities: Boolean(state?.customCities),
   basemap: state?.basemap || null,
   background: state?.background ?? null,
+  // How the scenario lets its map be shown (world.projection: mapViewOf).
+  noGlobe: mapViewOf(state?.projection).noGlobe,
+  noWrap: mapViewOf(state?.projection).noWrap,
   ...(() => {
     const folded = foldOwnerTokens(state);
     return {
@@ -153,6 +158,13 @@ const deriveMapState = (state) => ({
     };
   })(),
   polityOverrides: state?.polityOverrides ?? EMPTY_OBJECT,
+  // Groups and the regions they control (runtime/groups.js), read through the
+  // same normalizer the game uses; a world without groups costs nothing.
+  ...(() => {
+    if (!state?.groups || !Object.keys(state.groups).length) return { groups: EMPTY_OBJECT, groupAreas: EMPTY_OBJECT };
+    const groups = normalizeGroups(state.groups);
+    return { groups, groupAreas: normalizeGroupAreas(state.groupAreas, groups) };
+  })(),
   markers: Array.isArray(state?.markers) ? state.markers : EMPTY_MARKERS,
   cityRenames: state?.cityRenames ?? EMPTY_OBJECT,
   cityPopulations: state?.cityPopulations ?? EMPTY_OBJECT,
@@ -169,6 +181,8 @@ const sameMapState = (prev, next) =>
   prev.customCities === next.customCities &&
   prev.basemap === next.basemap &&
   prev.background === next.background &&
+  prev.noGlobe === next.noGlobe &&
+  prev.noWrap === next.noWrap &&
   prev.labelFont === next.labelFont &&
   prev.labelHaloColor === next.labelHaloColor &&
   prev.labelTextColor === next.labelTextColor &&
@@ -177,6 +191,8 @@ const sameMapState = (prev, next) =>
   prev.markers === next.markers &&
   prev.cityRenames === next.cityRenames &&
   prev.cityPopulations === next.cityPopulations &&
+  prev.groups === next.groups &&
+  prev.groupAreas === next.groupAreas &&
   prev.polityOverrides === next.polityOverrides;
 
 const stabilizeMapStateReferences = (prev, next) => {
@@ -207,6 +223,8 @@ const stabilizeMapStateReferences = (prev, next) => {
     cityPopulations: areEqualStructured(prev.cityPopulations, next.cityPopulations)
       ? prev.cityPopulations
       : next.cityPopulations,
+    groups: areEqualStructured(prev.groups, next.groups) ? prev.groups : next.groups,
+    groupAreas: areEqualStructured(prev.groupAreas, next.groupAreas) ? prev.groupAreas : next.groupAreas,
   };
 };
 
@@ -338,6 +356,8 @@ export function useWorldBackground() {
     return {
       background: current?.background ?? null,
       basemap: current?.basemap || null,
+      noGlobe: Boolean(current?.noGlobe),
+      noWrap: Boolean(current?.noWrap),
     };
   });
 
@@ -347,17 +367,19 @@ export function useWorldBackground() {
     const handler = (data) => {
       const background = data?.background ?? null;
       const basemap = data?.basemap || null;
+      const noGlobe = Boolean(data?.noGlobe);
+      const noWrap = Boolean(data?.noWrap);
 
       setState((prev) => {
         const backgroundSame =
           prev.background === background ||
           areEqualStructured(prev.background, background);
 
-        if (backgroundSame && prev.basemap === basemap) {
+        if (backgroundSame && prev.basemap === basemap && prev.noGlobe === noGlobe && prev.noWrap === noWrap) {
           return prev;
         }
 
-        return { background, basemap };
+        return { background, basemap, noGlobe, noWrap };
       });
     };
 

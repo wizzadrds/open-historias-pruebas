@@ -37,7 +37,10 @@ import {
     updateEntry,
 } from "../AI/providerConfig.js";
 import { formatResetTime } from "../AI/fallbackRunner.js";
-import { REVIEW_SECTIONS, announceRequestBudgetChange, describeJumpCost, requestDay, requestSettings } from "../AI/requestBudget.js";
+import { contextWindowKey, createContextWindowMemory, describeRememberedWindow } from "../AI/contextWindow.js";
+import { announceRequestBudgetChange, describeJumpCost, requestDay, requestSettings } from "../AI/requestBudget.js";
+import { useWorldBackground } from "../Map/useWorldState.js";
+import { endpointIsLocal } from "../AI/localEndpoint.js";
 import {
     isRatingEnabled,
     isTelemetryEnabled,
@@ -88,6 +91,8 @@ import { buildGameZipBlob, formatZipSize, saveGameZipToDisk } from "../../runtim
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { usePresenceLeaving } from "./presence.jsx";
 import { ESRI_BASEMAPS, isBuiltinBasemapId } from "../../runtime/assets.js";
+import { presenceAvailable } from "../../runtime/discordPresence.js";
+import { setVisitConsent, useVisitConsent } from "../../runtime/visitConsent.js";
 
 const baseStyle = {
     position: "fixed",
@@ -308,9 +313,40 @@ const ChatLanguageSelector = () => {
     );
 };
 
+// The Basemap pick, which replaces a scenario's built-in basemap on this
+// device. A scenario with a map of its own (a picture, a drawn map, the plain
+// sea of a flat sheet) keeps it (World.jsx), so there the pick is switched off
+// and says why. What was picked stays stored for the scenarios it applies to.
+const BasemapField = ({ value, onChange }) => {
+    const { background } = useWorldBackground();
+    const ownMap = Boolean(background?.kind);
+    return (
+        <div style={fieldGroupStyle}>
+            <label style={labelStyle} htmlFor="game-basemap-style">Basemap</label>
+            <select id="game-basemap-style" data-no-translate value={ownMap ? "" : value} disabled={ownMap} onChange={(event) => onChange(event.target.value)} style={{ ...inputStyle, cursor: ownMap ? "not-allowed" : "pointer", opacity: ownMap ? 0.6 : 1 }}>
+                <option value="" style={{ color: "black" }}>Scenario default</option>
+                {ESRI_BASEMAPS.map((basemap) => <option key={basemap.id} value={basemap.id} style={{ color: "black" }}>{basemap.label}</option>)}
+            </select>
+            <div style={helperStyle}>{ownMap ? "This scenario uses its own basemap, which cannot be replaced." : "Scenario default uses the map chosen by the scenario author. Overrides apply immediately."}</div>
+        </div>
+    );
+};
+
 // On a touch screen the whole row is the switch: the pill alone is 28 px tall,
 // under a thumb's width, and the label beside it is what a thumb goes for. The
 // pill keeps its size and stops shrinking when a long label wraps beside it.
+// The 3D Globe switch, which a scenario can take away: its map may be a flat
+// sheet that is not to be wrapped round a globe (world.projection.globe).
+const GlobeToggle = ({ enabled, onToggle }) => {
+    const { noGlobe } = useWorldBackground();
+    return (
+        <>
+        <Toggle label="3D Globe" enabled={enabled && !noGlobe} onToggle={noGlobe ? () => {} : onToggle} />
+        {noGlobe ? <div style={{ ...helperStyle, marginTop: "-0.6rem", marginBottom: "0.9rem" }}>The 3D globe is disabled for this scenario&apos;s map.</div> : null}
+        </>
+    );
+};
+
 const Toggle = ({ label, enabled, onToggle }) => {
     const touch = useTouchPrimary();
     return (
@@ -504,6 +540,44 @@ const ApiProviderSelector = ({ provider, onProviderChange }) => {
 //
 // Never a lock: whatever is chosen, the ladder can still step down from it, so a
 // setting made months ago cannot strand a campaign when a provider changes.
+// What each model has said about its context window (contextWindow.js), read
+// from the same storage the AI calls keep it in (main.jsx contextWindows).
+const contextWindowMemory = createContextWindowMemory({
+    getItem: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+    setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* this session only */ } },
+});
+
+// A model's context window: what was learned from its refusals, which keeps a
+// request it cannot fit from being sent to it, and the player's own figure,
+// which beats that. Forget clears either — for a local model whose window was
+// raised, or a provider that raised its limit — and the next request is sent.
+const ContextWindowField = ({ entry }) => {
+    const [, setRevision] = useState(0);
+    if (!entry) return null;
+    const key = contextWindowKey(entry);
+    // Nothing learned from a server on this machine or network is in force
+    // (main.jsx windowIsLearned), so only the player's own figure is shown for it.
+    const known = contextWindowMemory.remembered(key, { trustLearned: !endpointIsLocal(entry.endpoint) });
+    const changed = () => setRevision((value) => value + 1);
+    return (
+        <div>
+        <SettingsInput
+        label="Context window (tokens)"
+        type="number"
+        value={known?.source === "declared" ? String(known.limitTokens) : ""}
+        onChange={(value) => { contextWindowMemory.declare(key, Number(value)); changed(); }}
+        placeholder="Not set"
+        helperText={describeRememberedWindow(known)}
+        />
+        {known && (
+            <button type="button" className="oh-tap-row" onClick={() => { contextWindowMemory.forget(key); changed(); }} style={{ ...smallButtonStyle, marginTop: "-0.5rem", marginBottom: "0.9rem" }}>
+            Forget this window
+            </button>
+        )}
+        </div>
+    );
+};
+
 const StructuredModeSelect = ({ onChange, value }) => {
     const mode = normalizeStructuredMode(value);
     return (
@@ -769,6 +843,7 @@ const EntryEditor = ({ entry, connections, entries }) => {
         helperText="Replaces the connection's custom parameters for this entry — e.g. the same model with a larger max_tokens, picked by the Time skip task."
         />
         <StructuredModeSelect value={entry.structuredMode} onChange={set("structuredMode")} />
+        <ContextWindowField entry={entry.resolved} />
         </details>
         </div>
     );
@@ -1041,14 +1116,10 @@ const ReasoningSection = () => {
 // The request budget (AI/requestBudget.js): what today has cost, and the
 // switches that decide what a time skip and an idle minute may spend. Its own
 // storage and its own change event, so it sits outside mapSettings.
-const REVIEW_SECTION_LABELS = {
-    units: ["Move units to match the events", "Armies advance, retreat and take losses where the events say they did."],
-    territory: ["Mark occupied and disputed land", "Captured towns change hands on the map; contested ones are striped."],
-    timeline: ["Take repeats and filler off the timeline", "Events that restate the record, or report a meeting with no outcome, are left out."],
-    board: ["Keep the Projects board in step", "Progress, stalls and new long-term efforts follow from what happened."],
-    spies: ["Collect your agents' reports", "Each agent files what it intercepted, at least every third skip."],
-};
-
+//
+// No switch for each check after a skip any more (units, occupied land,
+// repeats, the Projects board, the agents' reports): they are part of the
+// skip's own request now, and always on (gameplay.js, "The folded time skip").
 const useRequestDay = () => {
     const [day, setDay] = useState(() => requestDay());
     useEffect(() => {
@@ -1070,14 +1141,14 @@ const RequestBudgetSection = () => {
     const [background, setBackground] = useState(() => requestSettings.backgroundAi());
     const [dailyLimit, setDailyLimit] = useState(() => String(requestSettings.dailyLimit()));
     const [backgroundCap, setBackgroundCap] = useState(() => String(requestSettings.backgroundDailyCap()));
-    const [sections, setSections] = useState(() => Object.fromEntries(REVIEW_SECTIONS.map((section) => [section, requestSettings.reviewSection(section)])));
 
     const apply = (message, write) => {
         write();
         logDebugEvent("setting", message);
         announceRequestBudgetChange();
     };
-    const cost = describeJumpCost({ saveRequests: saving });
+    // The most a skip is when function calling may add to it (Save AI requests off).
+    const lookupCap = describeJumpCost({ lookups: true }).max;
     const share = day.limit > 0 ? Math.min(1, day.used / day.limit) : 0;
     const barColor = share >= 0.9 ? "#f87171" : share >= 0.7 ? "#fbbf24" : "#60a5fa";
 
@@ -1115,10 +1186,12 @@ const RequestBudgetSection = () => {
                 apply(`Save AI requests turned ${next ? "on" : "off"}.`, () => requestSettings.setSaveRequests(next));
             }}
             />
+            {/* One sentence group per state, each a single string, so a language
+                pack translates it whole (docs/i18n.md). */}
             <div style={settingsHelper}>
                 {saving
-                    ? <>On (default): a time skip is one request, two when there is something to check afterwards, and never more than <span data-no-translate>{cost.max}</span>. The model is handed the names it needs instead of looking them up, a small mistake in its answer is cut out rather than asked for again, and the checks below go out together.</>
-                    : <>Off: the most thorough turns, for a key with no daily limit. Every check after a skip makes its own request, the model may look things up (up to three extra requests per task), and a flawed answer is sent back to be redone. A busy skip can use twenty requests or more.</>}
+                    ? "On (default): a time skip is one request. Each event arrives as soon as it is written, already carrying what it changed: the map, your units and structures, your orders and your Projects board. Your spies' reports come back in the same answer, and so does the history document when older events are due to be folded into it. The model is handed the names it needs instead of looking them up, and a small mistake in its answer is cut out rather than asked for again. A skip takes a second request only when its answer could not be used at all, when a provider refuses the single-request form, or on a turn where something you switched on yourself falls due: the automatic Stats refresh."
+                    : `Off: for a key with no daily limit. A time skip is still one request, and with AI lookup functions on (below) the model may look things up before it answers: each round of questions is another request, two at most, so a skip never uses more than ${lookupCap}. On Gemini such a skip shows its events together at the end instead of one at a time. Outside a skip, a task may look things up in up to three extra requests, and a flawed answer is sent back to be redone instead of being cut down.`}
             </div>
 
             <div style={fieldGroupStyle}>
@@ -1147,13 +1220,14 @@ const RequestBudgetSection = () => {
                 apply(`Background AI turned ${next ? "on" : "off"}.`, () => requestSettings.setBackgroundAi(next));
             }}
             />
-            <div style={settingsHelper}>
+            {/* The section ends on whichever of these two is last. */}
+            <div style={{ ...settingsHelper, ...(background ? null : { marginBottom: 0 }) }}>
                 {background
                     ? <>On (default): while you are not skipping time, countries may write to you unprompted, forces may reposition, agents may file extra reports, and a country you look at gets its first intelligence reading — each of those is a request nobody pressed a button for, and together they stop at the daily cap below.</>
                     : <>Off: the game only calls the model when you do something.</>}
             </div>
             {background && (
-                <div style={fieldGroupStyle}>
+                <div style={{ ...fieldGroupStyle, marginBottom: 0 }}>
                     <label style={labelStyle} htmlFor="ai-background-daily-cap">Background requests a day, at most</label>
                     <input
                     id="ai-background-daily-cap"
@@ -1170,27 +1244,6 @@ const RequestBudgetSection = () => {
                     <div style={helperStyle}>It also stops by itself once less than a tenth of your day is left.</div>
                 </div>
             )}
-
-            <div style={{ color: "rgba(255,255,255,0.78)", fontSize: "0.74rem", fontWeight: 800, margin: "0.4rem 0 0.2rem" }}>Checks after a time skip</div>
-            <div style={{ ...helperStyle, marginBottom: "0.7rem" }}>
-                {saving
-                    ? "All of these share ONE request, and only when the skip gave them something to look at. Turning one off never saves a request unless it was the only one with work to do; it does make that request smaller."
-                    : "With Save AI requests off, each of these is its own request after every skip and these switches are not used."}
-            </div>
-            {REVIEW_SECTIONS.map((section, index) => (
-                <React.Fragment key={section}>
-                    <Toggle
-                    label={REVIEW_SECTION_LABELS[section][0]}
-                    enabled={sections[section]}
-                    onToggle={() => {
-                        const next = !sections[section];
-                        setSections((current) => ({ ...current, [section]: next }));
-                        apply(`After-skip check "${REVIEW_SECTION_LABELS[section][0]}" turned ${next ? "on" : "off"}.`, () => requestSettings.setReviewSection(section, next));
-                    }}
-                    />
-                    <div style={{ ...settingsHelper, ...(index === REVIEW_SECTIONS.length - 1 ? { marginBottom: 0 } : {}) }}>{REVIEW_SECTION_LABELS[section][1]}</div>
-                </React.Fragment>
-            ))}
         </SettingsSection>
     );
 };
@@ -1254,7 +1307,7 @@ const SettingsButton = ({ onToggle, topOffset = "0.5rem", hidden = false }) => (
         cursor: "pointer",
         fontSize: "1.5rem",
         fontWeight: 800,
-        background: "linear-gradient(180deg, rgba(53,53,58,0.58), rgba(17,17,19,0.48))",
+        background: "rgba(35,35,39,0.53)",
         opacity: hidden ? 0 : 1,
         pointerEvents: hidden ? "none" : "auto",
         transition: "opacity 180ms ease 40ms",
@@ -1743,6 +1796,11 @@ const diagnosticsButton = {
 // system, network sharing, diagnostics) sit inside those four sections rather
 // than adding sections of their own.
 
+// The privacy policy is a site page: the desktop serves its own copy and the
+// website its root page. The Android app leaves it out of the APK
+// (mobile/scripts/stage-www.mjs), so there it opens the website's copy.
+const PRIVACY_HREF = import.meta.env.VITE_OH_NATIVE ? "https://openhistoria.com/privacy/" : "/privacy/";
+
 const QuickAction = ({ title, description, symbol, tone = "neutral", onClick, href, compact = false }) => {
     const tones = {
         neutral: { background: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.08)", icon: "rgba(255,255,255,0.08)", color: "#f8fafc" },
@@ -1804,8 +1862,69 @@ const ExperimentalPill = ({ children = "Experimental" }) => (
 
 const settingsHelper = { ...helperStyle, marginTop: "-0.55rem", marginBottom: "0.85rem" };
 
+// --- Privacy -------------------------------------------------------------------
+// The two things the game tells somebody else about the player that the player
+// can switch off, in one place, with the policy that describes the rest:
+// Discord's "Playing Open Historia" (runtime/discordPresence.js) and the visit
+// counters, whose answer public/consent.js keeps (runtime/visitConsent.js reads
+// it). Each row is shown only where the thing it switches exists: no Discord
+// row on the website or in the Android app, no visit row where nothing is
+// counted.
+
+// A link is not a button: on a touch screen it centres its own text in the
+// height the tap class gives it (as SocialLinks does).
+const PrivacyPolicyLink = () => {
+    const touch = useTouchPrimary();
+    return (
+        <a
+        href={PRIVACY_HREF}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="oh-tap-row"
+        style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(96,165,250,0.24)", borderRadius: "8px", color: "#bfdbfe", fontSize: "0.72rem", fontWeight: 750, padding: "0.45rem 0.65rem", textDecoration: "none", whiteSpace: "nowrap", ...(touch ? { alignItems: "center", display: "inline-flex" } : null) }}
+        >
+        {"Privacy policy"}
+        </a>
+    );
+};
+
+const PrivacySection = ({ discordPresenceOn, onToggleDiscordPresence }) => {
+    const visits = useVisitConsent();
+    const discord = presenceAvailable();
+    // On only after a yes: unanswered, and a no, both read off.
+    const counted = visits?.choice === "yes";
+    const toggleVisits = () => {
+        setVisitConsent(!counted);
+        logSettingChange("Count my visits", !counted);
+    };
+    // The browser's own signal stands in for an answer until the player gives one.
+    const signalNote = Boolean(visits?.refusedBySignal && visits.choice === "");
+    // The section ends on whichever line is last.
+    const lastHelper = { ...settingsHelper, marginBottom: 0 };
+    return (
+        <SettingsSection title="Privacy" description="What the game tells other services about you, and the switches for it." right={<PrivacyPolicyLink />}>
+            {discord && (
+                <>
+                <Toggle label="Show what I am playing on Discord" enabled={discordPresenceOn} onToggle={onToggleDiscordPresence} />
+                <div style={visits ? settingsHelper : lastHelper}>{"Discord shows the country you play, the scenario and the in-game date to people who can see your activity. Desktop app only."}</div>
+                </>
+            )}
+            {visits && (
+                <>
+                <Toggle label="Count my visits" enabled={counted} onToggle={toggleVisits} />
+                <div style={signalNote ? settingsHelper : lastHelper}>{"Lets Google Analytics and Umami count that you played and which version. Google Analytics sets cookies. Off unless you say yes."}</div>
+                {signalNote && <div style={lastHelper}>{"Your browser asks sites not to track you, so this is off."}</div>}
+                </>
+            )}
+            {!discord && !visits && (
+                <div style={{ ...helperStyle, marginTop: 0 }}>{"Nothing to switch off here: this build does not count visits and cannot reach Discord."}</div>
+            )}
+        </SettingsSection>
+    );
+};
+
 const SETTINGS_SECTIONS = [
-    { key: "general", label: "General", icon: "◫", description: "Language, display and accessibility" },
+    { key: "general", label: "General", icon: "◫", description: "Language, display, accessibility and privacy" },
     { key: "map", label: "Map", icon: "◇", description: "Basemap, labels, globe and camera" },
     { key: "ai", label: "AI", icon: "✦", description: "Models, backups, keys and reasoning" },
     { key: "advanced", label: "Advanced", icon: "⌘", description: "Per-task models and expert controls" },
@@ -1968,20 +2087,17 @@ const SettingsWorkspace = ({
                     }}
                     />
                 </SettingsSection>
+                <PrivacySection
+                discordPresenceOn={mapSettings.discordPresence}
+                onToggleDiscordPresence={() => updateMapSetting("discordPresence", MAP_SETTING_KEYS.discordPresence, !mapSettings.discordPresence)}
+                />
                 </>
             )}
 
             {activeSection === "map" && (
                 <>
                 <SettingsSection title="Map presentation" description="Choose the visual base and which political labels are shown.">
-                    <div style={fieldGroupStyle}>
-                        <label style={labelStyle} htmlFor="game-basemap-style">Basemap</label>
-                        <select id="game-basemap-style" data-no-translate value={basemapStyle} onChange={(event) => updateBasemapStyle(event.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-                            <option value="" style={{ color: "black" }}>Scenario default</option>
-                            {ESRI_BASEMAPS.map((basemap) => <option key={basemap.id} value={basemap.id} style={{ color: "black" }}>{basemap.label}</option>)}
-                        </select>
-                        <div style={helperStyle}>Scenario default uses the map chosen by the scenario author. Overrides apply immediately.</div>
-                    </div>
+                    <BasemapField value={basemapStyle} onChange={updateBasemapStyle} />
                     {/* Labels rasterize from the player's LOCAL fonts (the style
                         has no glyph server), so any installed family works - the
                         list only suggests common safe ones. Empty = whatever the
@@ -2006,7 +2122,7 @@ const SettingsWorkspace = ({
                 </SettingsSection>
                 <SettingsSection title="3D map" description="Globe and terrain rendering are presentation features; they do not change world state.">
                     <ExperimentalPill />
-                    <Toggle label="3D Globe" enabled={isGlobeEnabled} onToggle={onToggleGlobe} />
+                    <GlobeToggle enabled={isGlobeEnabled} onToggle={onToggleGlobe} />
                     <Toggle label="3D Terrain" enabled={isTerrainEnabled} onToggle={onToggleTerrain} />
                 </SettingsSection>
                 <SettingsSection title="Camera behavior" description="Fine-grained controls for automatic map movement.">
@@ -2033,11 +2149,11 @@ const SettingsWorkspace = ({
                     </div>
                     <Toggle label="AI lookup functions" enabled={mapSettings.lookupFunctions} onToggle={() => updateMapSetting("lookupFunctions", MAP_SETTING_KEYS.lookupFunctions, !mapSettings.lookupFunctions)} />
                     <div style={settingsHelper}>
-                    Only used while Save AI requests (above) is off, because every lookup is a whole extra request. On: before it answers, the model can call lookup functions — the exact power and region names, a region's neighbours, the war ledger, a chat — in up to three extra requests per task. Off: one request per task, with the region lists and ledgers written into the prompt instead. Needs a provider that supports function calling.
+                    Only used while Save AI requests (above) is off, because every lookup is a whole extra request. On: before it answers, the model can call lookup functions — the exact power and region names, a region's neighbours, the war ledger, a chat — in up to three extra requests per task, and two inside a time skip. Off: one request per task, with the region lists and ledgers written into the prompt instead. Needs a provider that supports function calling.
                     </div>
                     <Toggle label="Show time skip events as they are written" enabled={mapSettings.liveSkipEvents} onToggle={() => updateMapSetting("liveSkipEvents", MAP_SETTING_KEYS.liveSkipEvents, !mapSettings.liveSkipEvents)} />
                     <div style={settingsHelper}>
-                    On (default): a skip opens the Events panel and fills it as the model writes, with the spinner and Cancel underneath. Reveal with Next event as they arrive, and the map and camera follow; wherever you get to is kept when the turn lands. Off: the skip stays behind the Timeline panel's spinner and the round appears at the end. The turn itself is the same either way, and Gemini arrives all at once regardless.
+                    On (default): a skip opens the Events panel and fills it as the model writes, with the spinner and Cancel underneath. Reveal with Next event as they arrive, and the map and camera follow; wherever you get to is kept when the turn lands. Off: the skip stays behind the Timeline panel's spinner and the round appears at the end. The turn itself is the same either way. On Gemini, a skip that may look things up (Save AI requests off) still arrives all at once.
                     </div>
                     <Toggle label="Batch background AI tasks" enabled={mapSettings.batchBackgroundTasks} onToggle={() => updateMapSetting("batchBackgroundTasks", MAP_SETTING_KEYS.batchBackgroundTasks, !mapSettings.batchBackgroundTasks)} />
                     <div style={{ ...settingsHelper, marginBottom: 0 }}>
@@ -2106,8 +2222,8 @@ const SettingsWorkspace = ({
     // ✕ or the bottom of the page.
     return createPortal(
         <div role="dialog" aria-modal="true" aria-label="Game settings" className={leaving ? "oh-fade-out" : closing ? "oh-fade-out-slow" : fromRect ? undefined : "oh-fade-in"} style={{ alignItems: "center", background: "rgba(6,6,7,0.42)", backdropFilter: "blur(18px) saturate(1.2)", display: "flex", inset: 0, justifyContent: "center", padding: isMobile ? `calc(0.45rem + ${SAFE_TOP}) calc(0.45rem + ${SAFE_RIGHT}) calc(0.45rem + ${SAFE_BOTTOM}) calc(0.45rem + ${SAFE_LEFT})` : "clamp(0.8rem, 2vw, 1.6rem)", position: "fixed", zIndex: 2147483000 }}>
-            <div ref={cardRef} className="oh-ws-card" style={{ background: "linear-gradient(180deg, rgba(46,46,50,0.72), rgba(17,17,19,0.62))", backdropFilter: "var(--oh-hud-blur)", WebkitBackdropFilter: "var(--oh-hud-blur)", border: "1px solid var(--oh-hud-border)", borderRadius: isMobile ? "12px" : "18px", boxShadow: "var(--oh-hud-shadow)", color: "white", display: "flex", flexDirection: "column", fontFamily: "sans-serif", height: isMobile ? `calc(${APP_HEIGHT} - 0.9rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : `min(800px, calc(${APP_HEIGHT} - 2.4rem))`, maxWidth: "1120px", overflow: "hidden", width: isMobile ? `calc(100vw - 0.9rem - ${SAFE_LEFT} - ${SAFE_RIGHT})` : "min(94vw, 1120px)" }}>
-                <div aria-hidden="true" className="oh-ws-tint" style={{ background: "linear-gradient(180deg, rgba(46,46,50,0.68), rgba(17,17,19,0.58))", borderRadius: "inherit", inset: 0, pointerEvents: "none", position: "absolute" }} />
+            <div ref={cardRef} className="oh-ws-card" style={{ background: "rgba(32,32,35,0.67)", backdropFilter: "var(--oh-hud-blur)", WebkitBackdropFilter: "var(--oh-hud-blur)", border: "1px solid var(--oh-hud-border)", borderRadius: isMobile ? "12px" : "18px", boxShadow: "var(--oh-hud-shadow)", color: "white", display: "flex", flexDirection: "column", fontFamily: "sans-serif", height: isMobile ? `calc(${APP_HEIGHT} - 0.9rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : `min(800px, calc(${APP_HEIGHT} - 2.4rem))`, maxWidth: "1120px", overflow: "hidden", width: isMobile ? `calc(100vw - 0.9rem - ${SAFE_LEFT} - ${SAFE_RIGHT})` : "min(94vw, 1120px)" }}>
+                <div aria-hidden="true" className="oh-ws-tint" style={{ background: "rgba(32,32,35,0.63)", borderRadius: "inherit", inset: 0, pointerEvents: "none", position: "absolute" }} />
                 <div style={{ alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: "0.75rem", padding: "0.8rem 0.9rem" }}>
                     <button type="button" className="oh-tap" onClick={onBack} aria-label="Back to game menu" title="Back to game menu" style={{ alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "8px", color: "rgba(255,255,255,0.66)", cursor: "pointer", display: "flex", fontSize: "1rem", height: "2.25rem", justifyContent: "center", width: "2.25rem" }}>←</button>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -2259,6 +2375,8 @@ const SettingsMenu = ({
         // Ships ON too.
         liveSkipEvents: getMapSettingDefaultOn(MAP_SETTING_KEYS.liveSkipEvents),
         batchBackgroundTasks: getMapSetting(MAP_SETTING_KEYS.batchBackgroundTasks),
+        // Ships ON as well: Discord's "Playing Open Historia" (General → Privacy).
+        discordPresence: getMapSettingDefaultOn(MAP_SETTING_KEYS.discordPresence),
     }));
 
     const updateMapSetting = (stateKey, settingKey, value) => {
@@ -2366,7 +2484,7 @@ const SettingsMenu = ({
         panelContent = (
             <QuickMenuPanel title="Settings" description="Jump straight into the options category you want.">
                 <div style={grid}>
-                    <QuickAction title="General" description="Language, display and accessibility" symbol="◫" tone="blue" onClick={() => openSettingsSection("general")} />
+                    <QuickAction title="General" description="Language, display, accessibility and privacy" symbol="◫" tone="blue" onClick={() => openSettingsSection("general")} />
                     <QuickAction title="Map" description="Basemap, labels, globe and camera" symbol="◇" tone="blue" onClick={() => openSettingsSection("map")} />
                     <QuickAction title="AI" description="Models, backups, keys and reasoning" symbol="✦" onClick={() => openSettingsSection("ai")} />
                     <QuickAction title="Advanced" description="Per-task models and expert controls" symbol="⌘" onClick={() => openSettingsSection("advanced")} />
@@ -2379,6 +2497,7 @@ const SettingsMenu = ({
                 <div style={grid}>
                     <QuickAction title="Wiki" description="How-to pages and setup help" symbol="?" href="/wiki/" />
                     {reportBugUrl && <QuickAction title="Report a Bug" description="Open the issue/report page" symbol="!" tone="amber" href={reportBugUrl} />}
+                    <QuickAction title="Privacy" description="What the game keeps and sends" symbol="§" href={PRIVACY_HREF} />
                 </div>
                 <div style={{ alignItems: isMobile ? "stretch" : "center", display: "flex", flexDirection: isMobile ? "column" : "row", gap: "0.55rem", justifyContent: "space-between" }}>
                     <span style={{ color: "rgba(255,255,255,0.24)", fontSize: "0.6rem" }}>Community</span>
@@ -2434,7 +2553,7 @@ const SettingsMenu = ({
             alignItems: "stretch",
             justifyContent: "flex-start",
             height: "auto",
-            background: "linear-gradient(180deg, rgba(46,46,50,0.68), rgba(17,17,19,0.58))",
+            background: "rgba(32,32,35,0.63)",
             border: "1px solid var(--oh-hud-border)",
             boxShadow: "var(--oh-hud-shadow)",
         }}

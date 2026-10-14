@@ -32,7 +32,11 @@ import { useBrowserOnline } from "../../runtime/networkStatus.js";
 const TUTORIAL_VIDEO_ID = "YdalQ8UqMR4";
 const TUTORIAL_VIDEO_URL = `https://www.youtube.com/watch?v=${TUTORIAL_VIDEO_ID}`;
 // The privacy-enhanced embed host: no YouTube cookies until the video plays.
-const TUTORIAL_EMBED_URL = `https://www.youtube-nocookie.com/embed/${TUTORIAL_VIDEO_ID}?rel=0`;
+// Even so, loading the player tells YouTube who opened this prompt, so the
+// frame is only put on the page once the player presses the button that stands
+// in its place (TutorialVideo below). It starts playing then: that press was
+// the one asking for it.
+const TUTORIAL_EMBED_URL = `https://www.youtube-nocookie.com/embed/${TUTORIAL_VIDEO_ID}?rel=0&autoplay=1`;
 const AI_STUDIO_KEY_URL = "https://aistudio.google.com/app/apikey";
 
 const MODEL_PLACEHOLDERS = {
@@ -107,6 +111,37 @@ const inputStyle = {
 
 const helperStyle = { color: "rgba(255,255,255,0.45)", fontSize: "0.7rem", lineHeight: 1.45, marginTop: "0.3rem" };
 
+// The tutorial's place on the card: a button until it is pressed, the YouTube
+// player after. Nothing is asked of YouTube before the press, and the button
+// says that pressing it will. Unmounted by "Hide the video", so showing the
+// tutorial again starts from the button.
+const TutorialVideo = () => {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <div style={{ aspectRatio: "16 / 9", background: "rgba(0,0,0,0.5)", borderRadius: "10px", overflow: "hidden", width: "100%" }}>
+      {playing ? (
+        <iframe
+          title="How to get a Gemini API key (tutorial)"
+          src={TUTORIAL_EMBED_URL}
+          allow="accelerometer; autoplay; encrypted-media; picture-in-picture; web-share"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          style={{ border: 0, display: "block", height: "100%", width: "100%" }}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPlaying(true)}
+          style={{ alignItems: "center", background: "transparent", border: 0, color: "rgba(255,255,255,0.86)", cursor: "pointer", display: "flex", fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 750, gap: "0.5rem", height: "100%", justifyContent: "center", padding: "0.6rem", width: "100%" }}
+        >
+          <span aria-hidden="true">▶</span>
+          <span>{"Play the video (loads YouTube)"}</span>
+        </button>
+      )}
+    </div>
+  );
+};
+
 const groupedProviders = () => {
   const groups = new Map();
   for (const option of PROVIDER_OPTIONS) {
@@ -178,7 +213,7 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
     >
       <div
         style={{
-          background: "linear-gradient(180deg, rgba(46,46,50,0.96), rgba(17,17,19,0.97))",
+          background: "rgba(32,32,35,0.965)",
           border: "1px solid var(--oh-hud-border)",
           borderRadius: "16px",
           boxShadow: "var(--oh-hud-shadow)",
@@ -235,16 +270,7 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
           {showTutorial ? (
             <div style={{ marginTop: "0.7rem" }}>
               {online ? (
-                <div style={{ aspectRatio: "16 / 9", background: "rgba(0,0,0,0.5)", borderRadius: "10px", overflow: "hidden", width: "100%" }}>
-                  <iframe
-                    title="How to get a Gemini API key (tutorial)"
-                    src={TUTORIAL_EMBED_URL}
-                    allow="accelerometer; encrypted-media; picture-in-picture; web-share"
-                    allowFullScreen
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    style={{ border: 0, display: "block", height: "100%", width: "100%" }}
-                  />
-                </div>
+                <TutorialVideo />
               ) : (
                 <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "10px", color: "rgba(255,255,255,0.6)", fontSize: "0.74rem", lineHeight: 1.45, padding: "0.8rem 0.9rem" }}>
                   The video needs an internet connection. It plays here as soon as you are back online, and so does getting a key.

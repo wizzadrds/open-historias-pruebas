@@ -16,13 +16,16 @@ import { isNativeBuild } from "./native/bridge.js";
 // flushes everyone once; the HEAD check below keeps it fresh from now on.
 const PRELOAD_CACHE_NAME = "open-historia-preload-v2";
 
-// Drop caches from older versions once.
+// Drop caches from older versions once. Not the one holding saves on their way
+// from the site's http address: the service worker fills it just before the game
+// starts, and web/saveMove.js empties it once they are in the library.
+const SAVE_MOVE_CACHE_NAME = "oh-save-move";
 if (typeof caches !== "undefined" && caches?.keys) {
   caches
     .keys()
     .then((keys) => {
       for (const key of keys) {
-        if (key !== PRELOAD_CACHE_NAME) caches.delete(key).catch(() => {});
+        if (key !== PRELOAD_CACHE_NAME && key !== SAVE_MOVE_CACHE_NAME) caches.delete(key).catch(() => {});
       }
     })
     .catch(() => {});
@@ -114,6 +117,14 @@ export const DEFAULT_BASEMAP_ID = "ocean";
 const BASEMAP_STORAGE_KEY = "map_basemap_style";
 
 export const isBuiltinBasemapId = (id) => ESRI_BASEMAPS.some((basemap) => basemap.id === id);
+// The player's basemap pick (Settings > Map) as it applies to the scenario on
+// screen: a built-in basemap's id, or "" for the scenario's own. It replaces a
+// built-in basemap only. A scenario with a map of its own (a picture, a drawn
+// map, the plain sea of a flat sheet) keeps it: its regions are drawn for that
+// map, and a built-in basemap under them is the Earth under another world.
+export const basemapOverrideFor = (pickedId, { scenarioHasOwnMap = false } = {}) => (
+  !scenarioHasOwnMap && isBuiltinBasemapId(pickedId) ? pickedId : ""
+);
 export const resolveBasemapId = ({ overrideId = "", scenarioId = "", fallbackId = DEFAULT_BASEMAP_ID } = {}) => {
   if (isBuiltinBasemapId(overrideId)) return overrideId;
   if (isBuiltinBasemapId(scenarioId)) return scenarioId;

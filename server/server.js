@@ -72,6 +72,7 @@ import { appendLog, clearLog, readLogSince } from "./logStore.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 import { DATA_DIR } from "./dataDir.js";
+import { appKindOf } from "./appKind.js";
 import { createDiscordPresence, DISCORD_APPLICATION_ID, normalizePresence } from "./discordPresence.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -481,6 +482,14 @@ const discordPresence = createDiscordPresence({
 app.post("/api/presence", jsonParser, (req, res) => {
   if (isLoopbackAddress(req.socket?.remoteAddress)) discordPresence.update(normalizePresence(req.body));
   res.status(204).end();
+});
+
+// Which application this is: the desktop app (and whether it is the stable one,
+// the beta or the multiplayer build) or the server started by hand. Asked once by
+// the page's visit counter (src/runtime/visitCount.js), which counts each apart.
+// Nothing is looked up to answer it.
+app.get("/api/app-kind", (req, res) => {
+  res.json(appKindOf(process.versions, process.env));
 });
 
 const APP_UPDATE_TTL_MS = 3 * 60 * 1000;
@@ -1262,67 +1271,14 @@ app.get("/api/hub/file", async (req, res) => {
   }
 });
 
-// Best-effort scenario-import telemetry. On a successful import the client pings
-// here; we forward it to the self-hosted counter (a Cloudflare Worker — see
-// tools/import-counter/) so the hub owner can see how many people imported each
-// scenario, including attachment scenarios GitHub can't count. Deduped per
-// install: only the FIRST successful import of a given bundle counts, so a
-// re-import never inflates the number. Points at the hub's deployed counter
-// Worker (tools/import-counter); OH_IMPORT_COUNTER_URL overrides it, and an
-// empty value disables the ping entirely (silent no-op).
-const IMPORT_COUNTER_URL = (
-  process.env.OH_IMPORT_COUNTER_URL ?? "https://oh-import-counter.nichojkrol.workers.dev"
-).replace(/\/+$/, "");
-const IMPORT_PING_DIR = path.join(DATA_DIR, "import-pings");
-app.post("/api/hub/import-log", jsonParser, (req, res) => {
-  res.json({ ok: true }); // ack at once — telemetry must never delay or fail the import
-  (async () => {
-    try {
-      const { url: fileUrl, id, title } = req.body ?? {};
-      if (!IMPORT_COUNTER_URL || (id == null && !fileUrl)) return;
-      // One ping per scenario per install, EVER. Key the marker on the scenario
-      // id (its hub issue number) so re-importing — an updated version, or just
-      // mashing the Import button — never counts twice. The marker is created
-      // atomically (wx: fails if it already exists) so even racing requests
-      // can't both slip a ping through.
-      const markerKey = id != null ? `id:${id}` : `url:${fileUrl}`;
-      const marker = path.join(IMPORT_PING_DIR, crypto.createHash("sha256").update(markerKey).digest("hex"));
-      fs.mkdirSync(IMPORT_PING_DIR, { recursive: true });
-      try {
-        fs.writeFileSync(marker, markerKey, { flag: "wx" });
-      } catch {
-        return; // marker already exists — this scenario was counted on this install
-      }
-      await fetch(`${IMPORT_COUNTER_URL}/hit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: String(id ?? fileUrl).slice(0, 120), title: String(title ?? "").slice(0, 200) }),
-      }).catch(() => {});
-    } catch {
-      // best-effort telemetry — swallow everything
-    }
-  })();
-});
-
-// Read the self-hosted import counts back for the Community tab. Proxied (not
-// fetched from the Worker in the browser) so the client stays URL-agnostic and
-// same-origin. Lightly cached so a hub refresh doesn't hammer the Worker.
-let importCountsCache = { at: 0, data: null };
-app.get("/api/hub/import-counts", async (_req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  if (!IMPORT_COUNTER_URL) return res.json({});
-  if (importCountsCache.data && Date.now() - importCountsCache.at < 60000) {
-    return res.json(importCountsCache.data);
-  }
-  try {
-    const upstream = await fetch(`${IMPORT_COUNTER_URL}/counts`);
-    const data = upstream.ok ? await upstream.json() : {};
-    importCountsCache = { at: Date.now(), data };
-    res.json(data);
-  } catch {
-    res.json(importCountsCache.data || {});
-  }
-});
+// Imports are no longer reported from here. A scenario's import count is how many
+// times its file has been downloaded from the hub's releases, as GitHub counts
+// it; the page reads the counts from the hub's own index (src/runtime/hubFiles.js).
+// The routes that pinged and read the old counter on Cloudflare
+// (/api/hub/import-log, /api/hub/import-counts, OH_IMPORT_COUNTER_URL) are gone:
+// its free allowance was spent within hours of every day. /api/hub/file above
+// serves a file it has already downloaded from its cache, so importing the same
+// file again on this machine does not count twice.
 
 // ---- Map editor documents ------------------------------------------------
 app.get("/api/mapeditor/documents", (_req, res) => {
@@ -1425,13 +1381,22 @@ app.delete("/api/basemaps/:id", (req, res) => {
   }
 });
 
-// Vendored Fantasy Map Generator (Azgaar, MIT), built to ../fmg/dist by the
-// updater (scripts/fetch-fmg.mjs) and served same-origin so the map editor's
-// "Generate" console can run it in a hidden iframe and read its data. Present
-// only after it's been vendored — otherwise /fmg 404s and the editor says so.
+// The game's copy of Azgaar's Fantasy Map Generator (MIT), put in ../fmg/dist by
+// scripts/fetch-fmg.mjs and packed by the desktop installers, served same-origin
+// so the map editor's Generate drawer can run it in a hidden iframe and read its
+// data. It is a prepared copy that reaches no outside host
+// (scripts/fmg-vendor.mjs). Where the folder is missing (a source checkout that
+// never ran the script) the editor's probe (fmgDriver.js checkFmgAvailable)
+// finds no generator and hides the drawer.
 // Mounted before the SPA fallback so /fmg/* isn't swallowed by index.html.
 const fmgDistDir = path.join(__dirname, "../fmg/dist");
-if (fs.existsSync(fmgDistDir)) app.use("/fmg", express.static(fmgDistDir));
+if (fs.existsSync(fmgDistDir)) {
+  app.use("/fmg", express.static(fmgDistDir));
+  // A file the copy does not carry is a 404, not the app's own page: the
+  // generator asks for an image or two the game leaves out, and the SPA
+  // fallback would answer each with index.html and a 200.
+  app.use("/fmg", (_req, res) => { res.status(404).type("text/plain").send("Not found"); });
+}
 
 app.use(express.static(distDir));
 

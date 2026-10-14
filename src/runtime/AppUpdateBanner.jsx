@@ -33,7 +33,7 @@ const bar = {
   gap: "0.75rem",
   padding: "0.55rem max(0.9rem, env(safe-area-inset-left)) 0.55rem max(0.9rem, env(safe-area-inset-right))",
   paddingTop: "max(0.55rem, env(safe-area-inset-top))",
-  background: "linear-gradient(180deg, #161618, #101012)",
+  background: "#131315",
   borderBottom: "1px solid rgba(212,175,55,0.35)",
   color: "#f4ead0",
   font: "600 0.85rem/1.3 system-ui, sans-serif",
@@ -43,7 +43,7 @@ const text = { flex: 1, minWidth: 0 };
 const sub = { display: "block", fontWeight: 400, fontSize: "0.72rem", color: "rgba(244,234,208,0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const btn = {
   flex: "0 0 auto",
-  background: "linear-gradient(180deg, #d4af37, #b8901f)",
+  background: "#c6a02b",
   border: "1px solid rgba(212,175,55,0.6)",
   borderRadius: "9px",
   color: "#1a1206",
@@ -67,6 +67,10 @@ export default function AppUpdateBanner() {
   // server for the release manifest and updates by downloading an APK; the website
   // compares its baked build id against the deployed version.json and updates by
   // reloading onto the new bundle. Desktop/dev carry neither stamp and no-op.
+  //
+  // On the desktop, opening the game installs a waiting update before this page
+  // exists (electron/launchUpdate.cjs); the banner is for an update found while
+  // the game is open, and for one the player chose to play through.
   const isApp = Number.isFinite(APP_BUILD) && APP_BUILD > 0;
   // The desktop app is an ordinary localhost page, so it cannot tell it is inside
   // the app on its own. Its server answers /api/app-update with a `current` build,
@@ -93,6 +97,7 @@ export default function AppUpdateBanner() {
   // was, and a build that cannot update itself never sets this at all.
   const [progress, setProgress] = useState(null);
   const lastRefocusRef = useRef(0);
+  const desktopStatusReadRef = useRef(false);
 
   // A second-by-second poll, but only between pressing Update and the update being
   // ready (or failing) — never while the banner is merely sitting there. `progress`
@@ -141,6 +146,19 @@ export default function AppUpdateBanner() {
         if (dropped || !data?.current || !data?.buildId || !data?.download) return;
         if (data.buildId === data.current) return;
         setDesktop({ auto: Boolean(data.autoUpdate), build: data.buildId, notes: data.notes || "", url: data.download });
+        // A player who chose "Open the game now" while the update downloaded at
+        // launch (electron/launchUpdate.cjs): the download carries on in the main
+        // process, and the banner picks it up where it is (downloading, or ready
+        // to restart into). Not "available": a launch check that timed out can
+        // still find the update afterwards, with nothing downloading it, and the
+        // poll would wait on it for ever.
+        if (data.autoUpdate && !desktopStatusReadRef.current) {
+          desktopStatusReadRef.current = true;
+          const status = await fetch("/api/app-update/status", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+          if (!dropped && status?.supported && ["downloading", "ready"].includes(status.state)) {
+            setProgress((current) => current ?? status);
+          }
+        }
       } catch {
         /* fail open: no banner */
       }
