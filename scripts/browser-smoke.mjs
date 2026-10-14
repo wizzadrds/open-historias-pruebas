@@ -81,7 +81,9 @@ try {
   await page.getByRole("button", { name: "Start from a scenario", exact: true }).click({ timeout: 15_000, noWaitAfter: true });
   await page.getByRole("button", { name: "New Game", exact: true }).first().click({ timeout: 30_000 });
   await page.getByText("Choose your country", { exact: true }).waitFor({ timeout: 20_000 });
-  await page.getByRole("button", { name: "Scenario default", exact: true }).click({ timeout: 15_000 });
+  // The country-picker modal sits over an animating map canvas; force only this
+  // click's hit-testing, then verify the difficulty step actually opens.
+  await page.getByRole("button", { name: "Scenario default", exact: true }).click({ timeout: 15_000, force: true, noWaitAfter: true });
   await page.getByRole("button", { name: /Medium/ }).click({ timeout: 15_000 });
 
   const readActiveGameId = async () => page.evaluate(() => new Promise((resolve, reject) => {
