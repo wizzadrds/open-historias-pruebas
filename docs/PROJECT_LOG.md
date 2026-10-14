@@ -20,19 +20,21 @@ This file is the durable record of work performed in this working repository. Ne
 - Added `docs/WORKING_AGREEMENT.md`: inspect-first, acceptance criteria, verify independently, document outcomes, and do not claim checks that did not run.
 - Added `docs/QUALITY_GATES.md`: a repeatable validation matrix for tests, lint, all client build variants, UI behavior, AI response handling, and change summaries.
 - Added a pull request template requiring expected behavior, evidence, runtime checks, and risks.
-- Added a workflow for the `master` branch and pull requests targeting `master`, running tests, lint, and desktop/web/Android client builds.
+- Added a workflow for the `master` branch and pull requests targeting `master`, running tests, lint, desktop/web/Android client builds, and a headless Chromium smoke test of the built web client.
+- Added `scripts/browser-smoke.mjs`: launches the production web preview in Chromium, waits for visible UI, watches uncaught page errors, and saves a screenshot artifact. The workflow installs its pinned Playwright runner and Chromium, then uploads the screenshot (including on failure).
+- Removed three orphaned web account/sync modules (`account.js`, `accountWidget.js`, `sync.js`) after the existing `retiredAccount.test.js` failed because these retired modules were still present. The test suite will confirm whether other stale references remain.
 - These changes are on topic branch `agent/engineering-quality-gates`; they have not been merged into `master`.
 
 ### Verification status
 
 - Repository metadata, default branch, permissions, file tree, package scripts, architecture overview, server overview, world-state overview, AI overview, contribution conventions, and existing test workflow were inspected through GitHub.
 - **Not yet run in a local checkout:** `npm ci`, `npm test`, `npm run lint`, `npm run build`, `npm run build:web`, `npm run build:android`. The workflow is intended to run these checks in GitHub Actions after the branch is pushed/PR opened; do not report them as passing until a run confirms it.
-- **Not yet verified:** live browser/device end-to-end behavior, real AI provider interactions, and game-play flows in desktop/Android. These need runtime access and suitable test scenarios.
-- **Known process gap:** a build/test pipeline does not yet prove that a feature matches the user's product intent. Each future feature needs explicit acceptance criteria and a runtime check for its user-visible behavior; browser/device automation is a follow-up.
+- **Not yet verified locally:** `npm ci`, tests, lint, builds, and browser smoke test. A local checkout could not be obtained in this execution environment because direct GitHub network access is unavailable; GitHub Actions is the available execution environment for the repository source.
+- **Not yet verified:** actual gameplay actions (start a game, advance a turn, save/load), real AI provider interactions, and desktop/Android device flows. The new Chromium smoke test verifies app boot/visible UI and uncaught page errors; it is not a substitute for gameplay E2E coverage.
 
 ### Next steps
 
 1. Inspect the full architecture and critical data flows before modifying game behavior.
-2. Confirm this branch's GitHub Actions run and address failures rather than assuming it is green.
-3. Establish a repeatable browser smoke/E2E harness for key user journeys, after checking existing tools and platform constraints.
+2. Confirm the latest GitHub Actions run, fix failures without weakening assertions, and inspect the saved browser screenshot.
+3. Expand browser automation from boot smoke coverage into stable user journeys: open library, start/select a game, advance a turn where testable, and verify save/load.
 4. Create a concise product acceptance checklist for the first requested gameplay changes before implementing them.
