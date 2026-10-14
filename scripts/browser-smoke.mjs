@@ -55,6 +55,20 @@ try {
     return visible;
   }, null, { timeout: 90_000 });
 
+  // The website deliberately gates play behind its connection screen and demo notice.
+  // Enter through those real controls so the menu underneath is actually usable.
+  const homeOverlay = page.locator("#oh-home-root");
+  if (await homeOverlay.count()) {
+    await page.waitForFunction(() => {
+      const button = document.querySelector("#oh-home-root button.oh-btn.primary");
+      return Boolean(button && !button.disabled);
+    }, null, { timeout: 60_000 });
+    await homeOverlay.getByRole("button", { name: /Enter Open Historia/ }).click({ timeout: 15_000 });
+    const demoButton = page.getByRole("button", { name: "Play the demo anyway", exact: true });
+    if (await demoButton.count()) await demoButton.click({ timeout: 15_000 });
+    await homeOverlay.waitFor({ state: "detached", timeout: 15_000 });
+  }
+
   // The startup artwork alone is not enough: wait until the actual library menu renders.
   await page.waitForFunction(() => {
     const text = document.querySelector("#root")?.innerText || "";
