@@ -66,7 +66,9 @@ try {
     try {
       const pages = browser.contexts().flatMap((context) => context.pages());
       if (pages[0]) await pages[0].screenshot({ path: `${artifactsDir}/browser-smoke-failure.png`, fullPage: true });
-    } catch {}
+    } catch {
+      // Screenshot is best-effort when Chromium is already shutting down.
+    }
   }
   console.error(error);
   process.exitCode = 1;
