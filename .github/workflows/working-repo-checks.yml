@@ -34,9 +34,6 @@ jobs:
       - name: Run regression tests
         run: npm test
 
-      - name: Run lint
-        run: npm run lint
-
       - name: Build desktop/local client
         run: npm run build
 
@@ -63,3 +60,6 @@ jobs:
 
       - name: Build Android client bundle
         run: npm run build:android
+
+      - name: Run lint
+        run: npm run lint
