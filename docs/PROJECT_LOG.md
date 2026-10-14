@@ -22,7 +22,8 @@ This file is the durable record of work performed in this working repository. Ne
 - Added a pull request template requiring expected behavior, evidence, runtime checks, and risks.
 - Added a workflow for the `master` branch and pull requests targeting `master`, running tests, lint, desktop/web/Android client builds, and a headless Chromium smoke test of the built web client.
 - Added `scripts/browser-smoke.mjs`: launches the production web preview in Chromium, waits for visible UI, watches uncaught page errors, and saves a screenshot artifact. The workflow installs its pinned Playwright runner and Chromium, then uploads the screenshot (including on failure).
-- Removed three orphaned web account/sync modules (`account.js`, `accountWidget.js`, `sync.js`) after the existing `retiredAccount.test.js` failed because these retired modules were still present. The test suite will confirm whether other stale references remain.
+- Removed three orphaned web account/sync modules (`account.js`, `accountWidget.js`, `sync.js`) after the existing `retiredAccount.test.js` failed because these retired modules were still present. The subsequent test run passed the account-retirement assertion; full latest-run confirmation is still pending.
+- The first lint attempt reports 18 `no-empty` errors and 71 warnings in existing source/test files untouched by this work. The workflow now runs the browser smoke test and Android build before lint so the known lint backlog does not prevent runtime smoke coverage from executing; lint remains a required failing gate until its findings are resolved.
 - These changes are on topic branch `agent/engineering-quality-gates`; they have not been merged into `master`.
 
 ### Verification status
