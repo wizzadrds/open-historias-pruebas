@@ -8,8 +8,9 @@ Before acting, read these in order:
 
 1. `docs/WORKING_AGREEMENT.md` — non-negotiable engineering rules and definition of done.
 2. `docs/QUALITY_GATES.md` — commands and evidence required before delivery.
-3. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
-4. The relevant subsystem documentation and implementation, including callers and tests.
+3. `docs/AI_ARCHITECTURE_MAP.md` — subsystem boundaries and platform-specific persistence notes.
+4. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
+5. The relevant subsystem documentation and implementation, including callers and tests.
 
 If instructions conflict, preserve user data and safety first, then follow the working agreement and the narrowest applicable subsystem contract. Do not treat old log entries as current facts without rechecking the repository and latest CI.
 
