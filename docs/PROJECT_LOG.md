@@ -1,3 +1,11 @@
+## Aislar el diagnóstico de lint en CI — 2026-10-15
+
+- El flujo anterior ejecutaba pruebas, compilaciones, Chromium y Android en un único job antes de ejecutar lint. La recuperación del log completo de ese job devolvió aproximadamente 175 MB y superó el límite del conector, impidiendo inspeccionar el error concreto de lint.
+- Cambio: separé `npm run lint` en un job independiente llamado `lint`, con instalación reproducible mediante `npm ci` y Node.js 22. El job de verificación conserva sus pruebas, compilaciones y smoke test; no se han relajado reglas ni se han ocultado errores.
+- Commit del flujo: `f181ff43c666850ae1575f21ebf0521a96c58b7b`.
+- Estado de verificación de este cambio: **pendiente**. La modificación del archivo está confirmada por GitHub, pero aún no hay un resultado de CI para este commit; no se afirma que el workflow sea válido ni que lint pase.
+- Próximo paso: inspeccionar la nueva ejecución, recuperar solo el log del job `lint`, corregir los errores demostrados sin desactivar reglas y volver a ejecutar la puerta de calidad. Mantener la PR sin fusionar mientras fallen comprobaciones requeridas.
+
 ## Repeatable AI task protocol — 2026-10-15
 
 - Added `docs/AI_TASK_PROTOCOL.md` to turn the general engineering principles into a reusable task contract: lifecycle states, a copyable task brief, per-commit evidence ledger, failure triage, change-risk tiers, autonomy stop conditions, and a required handoff.
