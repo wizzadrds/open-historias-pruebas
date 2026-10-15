@@ -1489,7 +1489,7 @@ const WorldMap = ({ isGlobe = false }) => {
     try {
       if (typeof source?.updateData === "function") source.updateData({ removeAll: true });
       else source?.setData?.(EMPTY_FEATURE_COLLECTION);
-    } catch {}
+    } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
   }, [map]);
 
   // A style/projection remount recreates MapLibre source objects. Rehydrate the
@@ -1507,7 +1507,7 @@ const WorldMap = ({ isGlobe = false }) => {
       const snapshot = { type: "FeatureCollection", features };
       const fallback = (error) => {
         console.warn("[map] Incremental boundary rehydrate failed; restoring snapshot:", error);
-        try { source.setData?.(snapshot); } catch {}
+        try { source.setData?.(snapshot); } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
       };
       try {
         if (typeof source.updateData === "function") source.updateData({ removeAll: true, add: features })?.catch?.(fallback);
@@ -2629,7 +2629,7 @@ const WorldMap = ({ isGlobe = false }) => {
               { source, id: regionId },
               { ownershipTransitionHidden: Boolean(hidden) },
             );
-          } catch {}
+          } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
         }
       }
     };
@@ -2650,7 +2650,7 @@ const WorldMap = ({ isGlobe = false }) => {
               { source, id: regionId },
               { fillColor: toColor },
             );
-          } catch {}
+          } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
         }
         appliedCustomFillStateRef.current.set(regionId, toColor);
 
@@ -2661,7 +2661,7 @@ const WorldMap = ({ isGlobe = false }) => {
               { fillColor: toColor },
             );
             appliedTileFillStateRef.current.set(regionId, toColor);
-          } catch {}
+          } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
         }
       }
     };
@@ -2699,8 +2699,8 @@ const WorldMap = ({ isGlobe = false }) => {
         if (mapInstance.getLayer?.("ownership-transition-sweep-fill")) {
           mapInstance.setPaintProperty("ownership-transition-sweep-fill", "fill-opacity", 0);
         }
-      } catch {}
-      try { sweep.floodLayer?.clearTransition?.(); } catch {}
+      } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
+      try { sweep.floodLayer?.clearTransition?.(); } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
 
       sweep.regionIds = [];
       sweep.active = false;
@@ -2823,7 +2823,7 @@ const WorldMap = ({ isGlobe = false }) => {
           },
           onError: (error) => {
             if (token !== ownershipSweepRef.current.token) return;
-            try { floodLayer.clearTransition?.(); } catch {}
+            try { floodLayer.clearTransition?.(); } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
             if (sweep.worker === worker && !fallbackSweepRequested) {
               requestLegacySweep(error);
               return;
@@ -2972,11 +2972,11 @@ const WorldMap = ({ isGlobe = false }) => {
     if (sweep.frame) cancelAnimationFrame(sweep.frame);
     if (sweep.waitFrame) cancelAnimationFrame(sweep.waitFrame);
     if (sweep.timeout) clearTimeout(sweep.timeout);
-    try { sweep.floodLayer?.clearTransition?.(); } catch {}
+    try { sweep.floodLayer?.clearTransition?.(); } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
     const mapInstance = map?.getMap ? map.getMap() : map;
     try {
       if (mapInstance?.getLayer?.(OWNERSHIP_FLOOD_LAYER_ID)) mapInstance.removeLayer(OWNERSHIP_FLOOD_LAYER_ID);
-    } catch {}
+    } catch { /* MapLibre operations can race with source/style teardown; keep this fallback best-effort. */ }
     sweep.floodLayer = null;
     sweep.active = false;
     ownershipTransitionQueueRef.current = [];
