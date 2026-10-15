@@ -84,7 +84,8 @@ try {
   // Decline optional analytics so this smoke test stays deterministic and privacy-preserving.
   const declineAnalytics = page.getByRole("button", { name: "No, thanks", exact: true });
   if (await declineAnalytics.isVisible().catch(() => false)) {
-    await declineAnalytics.click({ timeout: 10_000 });
+    // The consent dialog animates over the app; force only this optional dismissal click.
+    await declineAnalytics.click({ timeout: 10_000, force: true, noWaitAfter: true });
   }
 
   await page.screenshot({ path: artifactsDir + "/browser-smoke-menu.png", fullPage: true });
