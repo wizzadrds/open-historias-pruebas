@@ -10,8 +10,9 @@ Before acting, read these in order:
 2. `docs/QUALITY_GATES.md` — commands and evidence required before delivery.
 3. `docs/AI_TASK_PROTOCOL.md` — task lifecycle, acceptance-criteria template, evidence ledger, failure triage, risk tiers and stop conditions.
 4. `docs/AI_ARCHITECTURE_MAP.md` — subsystem boundaries and platform-specific persistence notes.
-5. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
-6. The relevant subsystem documentation and implementation, including callers and tests.
+5. `docs/AI_TEST_MAP.md` — candidate regression tests by subsystem; inspect assertions before relying on them.
+6. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
+7. The relevant subsystem documentation and implementation, including callers and tests.
 
 If instructions conflict, preserve user data and safety first, then follow the working agreement and the narrowest applicable subsystem contract. Do not treat old log entries as current facts without rechecking the repository and latest CI.
 
