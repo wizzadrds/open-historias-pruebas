@@ -1,3 +1,12 @@
+## Browser E2E finding — 2026-10-15
+
+- Downloaded and visually inspected the screenshots from GitHub Actions run [38586116733](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38586116733). The workflow's browser test reached the built-in scenario, created a game, and confirmed the active game ID persisted across reload. However, both post-creation screenshots still show the full-screen `DRAWING BORDERS AND LABELS...` loading artwork. The earlier smoke test therefore passed too early: persisted data and absence of uncaught page errors did not prove the game became playable.
+- Tightened `scripts/browser-smoke.mjs` to wait for the world-loading message to disappear after game creation and after reload, before reporting success. This is intended to turn the visual issue into an explicit failing test rather than accepting a stuck loading screen.
+- The latest verification run for this adjustment is [38740050728](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38740050728), queued at the time of this entry. No result is claimed until the run completes.
+- Previous run [38586116733](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38586116733): regression tests, desktop build, web build, Chromium launch/browser scenario, screenshot upload, and Android bundle build passed; lint failed. The existing lint run reports 18 `no-empty` errors and 71 warnings in files not changed by this quality-gates work. Lint is still a failing gate and must not be described as green.
+- Scope of current browser E2E: web library entry, create a game with the built-in default scenario at Medium difficulty, verify persisted active game ID, reload and require the loading screen to finish, and collect uncaught page errors. It does not yet advance a turn, exercise save/load UI explicitly, call a real AI provider, or test desktop/Android device runtime.
+- Next: inspect the result and screenshot from run 38740050728; if it fails at the loading assertion, diagnose the real startup/world initialization path instead of weakening the assertion. Then add a reliable gameplay action (advance turn) only after identifying the actual UI controls and expected state transition. Keep the PR unmerged while checks fail.
+
 # Project Log
 
 This file is the durable record of work performed in this working repository. New entries go at the top. Record facts and observed results; distinguish verified outcomes from assumptions and unrun checks.
