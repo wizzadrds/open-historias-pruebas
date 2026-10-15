@@ -1,3 +1,11 @@
+## Lint remediation pass 1 — 2026-10-15
+
+- Applied a narrow, behavior-preserving documentation fix to the 18 `no-empty` sites previously identified in the four map-rendering files. The empty catch bodies now contain comments explaining why the operations are intentionally best-effort during MapLibre teardown or WebGL context/resource loss.
+- Changed files: `src/Game/Map/Nations.jsx` (10 sites), `src/Game/Map/labels/PolityTextLayer.jsx` (1), `src/Game/Map/labels/polityTextCustomLayer.js` (3), and `src/Game/Map/vnext/ownershipFloodCustomLayer.js` (4). Commits returned by GitHub writes: `1b092fa7ca618f80aef7c72708b2630303a40720`, `903842e4e0e3a025b00cf6d9b9922b57eb68a76c`, `4ed3bd54ae05ee8a6ea39aa40a07acaacd2fe926`, `603b2cf9b112e3aac1bda96ea50f4f6f8cbf61d5`.
+- This does not suppress the rule or alter exception behavior. It documents why those catches are intentionally empty. The source changes have not yet been verified by lint/test on the resulting candidate commit; do not mark the issue fixed until CI confirms.
+- Current-head workflow [38792663905](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792663905) was pending at the time of this entry. Prior workflow [38792463042](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792463042) was still in progress for an older commit. Earlier successful regression tests apply only to their recorded SHA, not to these edits.
+- Next: inspect current-head lint first. If ESLint still reports `no-empty`, use explicit catch parameters/handling that preserve best-effort cleanup rather than disabling the rule. Then inspect remaining diagnostics and run the regression suite against the same candidate SHA.
+
 ## Lint diagnosis isolated and tracked — 2026-10-15
 
 - Inspected the completed lint job `116619236911` from workflow run [38791976900](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38791976900), commit `e5f8b875e50b7a964308559e6ce968f2103f028f`. The command reports **18 errors and 71 warnings**; all 18 errors are `no-empty` diagnostics in four map-rendering files: `src/Game/Map/Nations.jsx` (10), `src/Game/Map/labels/PolityTextLayer.jsx` (1), `src/Game/Map/labels/polityTextCustomLayer.js` (3), and `src/Game/Map/vnext/ownershipFloodCustomLayer.js` (4).
