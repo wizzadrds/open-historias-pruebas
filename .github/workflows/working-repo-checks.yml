@@ -61,5 +61,20 @@ jobs:
       - name: Build Android client bundle
         run: npm run build:android
 
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
       - name: Run lint
         run: npm run lint
