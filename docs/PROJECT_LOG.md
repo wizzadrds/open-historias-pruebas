@@ -1,3 +1,10 @@
+## AI contributor entry point — 2026-10-15
+
+- Added root `AGENTS.md` as an explicit entry point for autonomous coding agents. It turns the existing working agreement into an operational loop: establish current reality, trace cross-target impact, define acceptance criteria, implement the smallest safe change, run evidence-producing checks, independently inspect the diff, and record a durable handoff.
+- The guide includes repository landmarks, AI-output validation requirements, save/data safety, CI failure policy, and a completion-report template. It explicitly labels known paths as starting points that must be reverified, and prohibits treating a successful build or smoke test as proof of untested behavior.
+- This is a documentation-only change. No application code, tests, lint, or builds were run in this connector session; CI must validate the branch. No claim is made that existing lint failures are fixed.
+- Next: make the new guide discoverable from the working agreement and quality-gates docs, then continue the repository-wide subsystem map and turn the current CI/lint findings into verified, narrowly scoped tasks. Keep PR #1 unmerged until required checks pass.
+
 ## Browser E2E finding — 2026-10-15
 
 - Downloaded and visually inspected screenshots from run [38586116733](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38586116733). That earlier browser smoke test created a game and confirmed its active ID persisted across reload, but the screenshots still showed the full-screen `DRAWING BORDERS AND LABELS...` artwork. This proved the original smoke test was too weak.
