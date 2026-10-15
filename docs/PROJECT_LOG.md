@@ -1,3 +1,12 @@
+## AI test discovery index — 2026-10-15
+
+- Added `docs/AI_TEST_MAP.md`, a source-tree-backed index of candidate tests for AI schemas/provider failures/turn orchestration, world-state and GIS invariants, persistence, server payloads and performance-sensitive turn paths.
+- The index explicitly distinguishes a candidate test filename from verified coverage: agents must inspect the test body and assertions before relying on it. It includes a repeatable `find` / `rg` / narrow-test workflow and reminds agents that Tier 3 work needs end-to-end evidence where feasible.
+- Linked the index from the mandatory first-read sequence in root `AGENTS.md`; this keeps test discovery part of the default workflow rather than optional reference material.
+- Repository-write evidence: the new index commit is `eb46ce14b6694e8b346913251cfb126943ef4f79`; the subsequent entry-point link commit is recorded by the update response. These are GitHub write confirmations only, not validation evidence.
+- CI run `38791976900` for the prior head `e5f8b875e50b7a964308559e6ce968f2103f028f` was still in progress when inspected: both `lint` and `verify` jobs were running, with regression tests not yet complete. No result is claimed for the new commits; they will trigger/require their own current-head validation.
+- Next: inspect the isolated lint job output after completion, fix only evidence-backed root causes without weakening rules, and then extend the browser journey to a real turn transition once the UI control and expected state contract are confirmed.
+
 ## Aislar el diagnóstico de lint en CI — 2026-10-15
 
 - El flujo anterior ejecutaba pruebas, compilaciones, Chromium y Android en un único job antes de ejecutar lint. La recuperación del log completo de ese job devolvió aproximadamente 175 MB y superó el límite del conector, impidiendo inspeccionar el error concreto de lint.
