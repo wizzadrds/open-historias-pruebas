@@ -1,3 +1,12 @@
+## Verificación completa de CI — 2026-10-15
+
+- La ejecución [38792700892](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792700892), sobre el commit `30107cb98b6bcb6059493e4e832bc56d458a7d58`, terminó con conclusión **success**.
+- Los dos jobs terminaron correctamente: `lint` y `verify`. El job `verify` confirma tests de regresión, build desktop/local, build web, smoke test con Chromium, carga de captura de navegador y bundle Android.
+- El smoke test de Chromium ya no se queda en ejecución: terminó en éxito, incluyendo la espera a que acabe la inicialización del mundo y la comprobación tras recargar.
+- Artefacto de captura del navegador: [browser-smoke-38792700892](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792700892). La existencia del artefacto está confirmada; no afirmo haber inspeccionado visualmente esta captura.
+- Esto valida ese SHA concreto. Si se añade otro commit, la nueva cabeza debe pasar su propia CI. La PR #1 sigue abierta, en borrador y sin fusionar.
+- Próximo paso: actualizar el seguimiento de la incidencia #2 con la evidencia final y continuar revisando el alcance funcional pendiente; el smoke test no cubre todavía una transición de turno real ni una llamada a un proveedor de IA.
+
 ## Lint remediation pass 1 — 2026-10-15
 
 - Applied a narrow, behavior-preserving documentation fix to the 18 `no-empty` sites previously identified in the four map-rendering files. The empty catch bodies now contain comments explaining why the operations are intentionally best-effort during MapLibre teardown or WebGL context/resource loss.
