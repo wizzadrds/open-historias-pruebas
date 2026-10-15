@@ -1,3 +1,12 @@
+## Repeatable AI task protocol — 2026-10-15
+
+- Added `docs/AI_TASK_PROTOCOL.md` to turn the general engineering principles into a reusable task contract: lifecycle states, a copyable task brief, per-commit evidence ledger, failure triage, change-risk tiers, autonomy stop conditions, and a required handoff.
+- Linked the protocol from the first-read sequence and repository orientation in root `AGENTS.md`. This reduces the chance that agents interpret autonomy as permission to skip evidence or silently treat historical CI as current.
+- Confirmed the GitHub file-write operations returned commits `a7dbd69f10f1549d2176727038129da48b77139e` (new protocol) and `19f71dc50b1f0bc305c326edd8343206152ab5f4` (agent entry point). These are write confirmations only.
+- Verification: documentation content was written through GitHub; no local checkout was available, and no tests, lint, builds, Markdown/link checker, or CI run were executed for these latest commits. Therefore the branch is **not yet verified**.
+- Known blocker remains: workflow run `38740095544` passed tests and desktop/web/Android builds plus browser smoke, but failed `npm run lint`. A direct job-log retrieval exceeded the connector response limit (175 MB), so exact diagnostics have not been re-established from that run. Do not infer or bulk-fix the lint errors without targeted evidence.
+- Next: inspect the latest PR/check status for the current head; obtain lint diagnostics through smaller step/log slices or a fresh run, fix only confirmed root causes, and rerun the failing gate. Keep PR #1 unmerged until required checks pass.
+
 ## Architecture map for autonomous agents — 2026-10-15
 
 - Added `docs/AI_ARCHITECTURE_MAP.md` and linked it from root `AGENTS.md`. It maps verified entry points for game state, AI turn orchestration/provider boundary, server routes, server persistence, writable data root, browser smoke and CI; it also distinguishes desktop, browser and Android persistence/runtime constraints.
