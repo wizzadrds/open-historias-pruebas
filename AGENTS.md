@@ -8,9 +8,10 @@ Before acting, read these in order:
 
 1. `docs/WORKING_AGREEMENT.md` — non-negotiable engineering rules and definition of done.
 2. `docs/QUALITY_GATES.md` — commands and evidence required before delivery.
-3. `docs/AI_ARCHITECTURE_MAP.md` — subsystem boundaries and platform-specific persistence notes.
-4. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
-5. The relevant subsystem documentation and implementation, including callers and tests.
+3. `docs/AI_TASK_PROTOCOL.md` — task lifecycle, acceptance-criteria template, evidence ledger, failure triage, risk tiers and stop conditions.
+4. `docs/AI_ARCHITECTURE_MAP.md` — subsystem boundaries and platform-specific persistence notes.
+5. The newest entry in `docs/PROJECT_LOG.md` — current verified state, blockers, and next action.
+6. The relevant subsystem documentation and implementation, including callers and tests.
 
 If instructions conflict, preserve user data and safety first, then follow the working agreement and the narrowest applicable subsystem contract. Do not treat old log entries as current facts without rechecking the repository and latest CI.
 
@@ -101,6 +102,7 @@ Use this as a starting map, not a substitute for searching current code:
 - `server/libraryStore.js`, `server/dataDir.js` — library persistence and data-directory concerns.
 - `scripts/browser-smoke.mjs` — browser smoke workflow.
 - `docs/QUALITY_GATES.md` — authoritative local check list.
+- `docs/AI_TASK_PROTOCOL.md` — repeatable task/evidence contract.
 - `docs/PROJECT_LOG.md` — chronological evidence and handoff.
 
 These paths are known landmarks from prior reconnaissance; verify that they still exist and inspect their current contents before relying on them. Search imports and callers to find the actual ownership of behavior.
