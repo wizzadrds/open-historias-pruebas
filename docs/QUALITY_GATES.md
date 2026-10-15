@@ -2,6 +2,8 @@
 
 The purpose of this process is to catch regressions before asking the user to retest them. CI is a safety net, not a substitute for checking the actual behavior.
 
+Coding agents should read the root [`AGENTS.md`](../AGENTS.md) for the full autonomous engineering loop and [`WORKING_AGREEMENT.md`](WORKING_AGREEMENT.md) for the definition of done. This document is the authoritative checklist for quality commands.
+
 ## Before implementation
 
 1. Restate the requested outcome in observable terms.
