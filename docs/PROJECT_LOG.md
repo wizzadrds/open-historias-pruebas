@@ -1,3 +1,10 @@
+## Discoverability of autonomous-agent instructions — 2026-10-15
+
+- Linked root `AGENTS.md` from `docs/WORKING_AGREEMENT.md` and `docs/QUALITY_GATES.md`, so agents following existing quality documentation are directed to the complete task loop rather than relying on the new file being found by chance.
+- The documentation chain is now: root agent entry point → working agreement and quality gates → latest project log and subsystem-specific code/tests.
+- Verified the three GitHub file-write operations returned commit SHAs. These are repository-write confirmations only, not test or CI evidence. No application tests/builds were executed in this session.
+- Next: inspect the new docs and current CI state, then expand the architecture map using real source and test contracts. Prioritize observed high-risk paths (turn resolution, save/load and AI validation) over speculative refactoring.
+
 ## AI contributor entry point — 2026-10-15
 
 - Added root `AGENTS.md` as an explicit entry point for autonomous coding agents. It turns the existing working agreement into an operational loop: establish current reality, trace cross-target impact, define acceptance criteria, implement the smallest safe change, run evidence-producing checks, independently inspect the diff, and record a durable handoff.
