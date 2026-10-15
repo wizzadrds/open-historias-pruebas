@@ -1,3 +1,11 @@
+## Architecture map for autonomous agents — 2026-10-15
+
+- Added `docs/AI_ARCHITECTURE_MAP.md` and linked it from root `AGENTS.md`. It maps verified entry points for game state, AI turn orchestration/provider boundary, server routes, server persistence, writable data root, browser smoke and CI; it also distinguishes desktop, browser and Android persistence/runtime constraints.
+- The map explicitly warns that the central game-state and AI gameplay modules are very large and tells agents to trace focused functions/callers/contracts instead of attempting wholesale rewrites. It documents the difference between schema-valid model output and semantically legal game operations, and lists the eight stages an AI-turn investigation should trace.
+- Rechecked workflow run [38740095544](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38740095544), job `116439722456`: regression tests, desktop build, web build, Chromium setup/smoke, screenshot upload and Android bundle build passed; the final lint step failed. The connector returned a log payload too large to inspect safely, so exact current lint diagnostics remain unverified here. This run predates the latest documentation commits and is not evidence that the current head has passed CI.
+- The source landmarks were fetched from the default-branch revision for orientation, while the documentation changes were committed to `agent/engineering-quality-gates`. The map therefore requires agents to verify paths and behavior on their active branch before relying on them.
+- No application code was changed and no tests/builds were run locally in this session. The new docs need CI validation. Next: inspect lint output in smaller, targeted slices or via the Actions UI, then create a source-backed subsystem/test index for turn resolution and persistence; do not claim the system is fully autonomous or fully verified yet.
+
 ## Discoverability of autonomous-agent instructions — 2026-10-15
 
 - Linked root `AGENTS.md` from `docs/WORKING_AGREEMENT.md` and `docs/QUALITY_GATES.md`, so agents following existing quality documentation are directed to the complete task loop rather than relying on the new file being found by chance.
