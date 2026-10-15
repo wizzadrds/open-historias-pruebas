@@ -79,6 +79,14 @@ try {
     const text = document.querySelector("#root")?.innerText || "";
     return text.includes("No games yet") || text.includes("Start from a scenario") || text.includes("Last Played");
   }, null, { timeout: 90_000 });
+
+  // The first-run analytics consent dialog can intercept clicks across the app.
+  // Decline optional analytics so this smoke test stays deterministic and privacy-preserving.
+  const declineAnalytics = page.getByRole("button", { name: "No, thanks", exact: true });
+  if (await declineAnalytics.isVisible().catch(() => false)) {
+    await declineAnalytics.click({ timeout: 10_000 });
+  }
+
   await page.screenshot({ path: artifactsDir + "/browser-smoke-menu.png", fullPage: true });
 
   await page.getByRole("button", { name: "Start from a scenario", exact: true }).click({ timeout: 15_000, noWaitAfter: true });
