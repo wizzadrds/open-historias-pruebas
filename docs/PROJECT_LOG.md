@@ -1,3 +1,11 @@
+## Lint diagnosis isolated and tracked — 2026-10-15
+
+- Inspected the completed lint job `116619236911` from workflow run [38791976900](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38791976900), commit `e5f8b875e50b7a964308559e6ce968f2103f028f`. The command reports **18 errors and 71 warnings**; all 18 errors are `no-empty` diagnostics in four map-rendering files: `src/Game/Map/Nations.jsx` (10), `src/Game/Map/labels/PolityTextLayer.jsx` (1), `src/Game/Map/labels/polityTextCustomLayer.js` (3), and `src/Game/Map/vnext/ownershipFloodCustomLayer.js` (4).
+- Inspected the affected code ranges. The empty blocks are mostly best-effort catches around MapLibre source/feature-state calls and WebGL resource cleanup. Do not mechanically suppress the rule: inspect each operation's intended failure semantics and preserve cleanup behavior before adding explicit comments or handling.
+- Created [issue #2](https://github.com/wizzadrds/open-historias-pruebas/issues/2) with the exact diagnostic locations, acceptance criteria, and a narrow scope for resolving the 18 errors without weakening ESLint. The remaining 71 warnings are tracked separately from this first pass.
+- In the same run, the regression-test step completed successfully on the prior head; browser smoke and Android bundle steps were still pending when inspected. This does not validate the latest documentation commits. The latest branch head is `12a6376428c7ffd277fbc68ae9532d343bf75649`, and workflow run [38792351220](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792351220) was pending at the last check.
+- Next: wait for current-head CI to finish, then fix the lint errors in a focused code patch with targeted regression coverage where behavior changes. Do not merge PR #1 while required checks are failing.
+
 ## AI test discovery index — 2026-10-15
 
 - Added `docs/AI_TEST_MAP.md`, a source-tree-backed index of candidate tests for AI schemas/provider failures/turn orchestration, world-state and GIS invariants, persistence, server payloads and performance-sensitive turn paths.
