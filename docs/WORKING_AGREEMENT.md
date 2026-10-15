@@ -2,6 +2,8 @@
 
 This repository is the active working copy for the requested Open Historia changes. Keep it; do not delete or replace the repository. Record meaningful changes, failures, decisions, and next steps here so work can continue without making the user repeat context.
 
+**For coding agents:** start at the root [`AGENTS.md`](../AGENTS.md), then use this agreement as the non-negotiable policy and [`QUALITY_GATES.md`](QUALITY_GATES.md) for verification commands. The newest entry in [`PROJECT_LOG.md`](PROJECT_LOG.md) is a handoff, not a substitute for checking current code and CI.
+
 ## Non-negotiable working rules
 
 1. **Inspect before changing.** Read the relevant implementation, its callers, data contracts, related tests, and subsystem documentation before editing.
