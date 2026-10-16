@@ -130,7 +130,23 @@ try {
   assert.equal(await readActiveGameId(), activeGameId, "The active game must survive a browser reload.");
   // Do not count persistence as a successful reload if the game remains on its loading screen.
   await waitForGameplayReady(page);
-  await delay(5_000);
+  await delay(2_000);
+
+  // Exercise a real player interaction, not just the loading screen: queue a
+  // deterministic manual order and assert it appears in the submitted-orders
+  // panel. This does not claim the simulation turn has been resolved.
+  const actionsToggle = page.locator('button[title="Actions"]').first();
+  await actionsToggle.waitFor({ state: "visible", timeout: 30_000 });
+  await actionsToggle.click();
+  const orderText = "Automated browser test: prioritize public infrastructure";
+  const actionComposer = page.getByPlaceholder(/Enter your action/).first();
+  await actionComposer.waitFor({ state: "visible", timeout: 15_000 });
+  await actionComposer.fill(orderText);
+  await page.getByRole("button", { name: "Submit action", exact: true }).click();
+  await page.getByText(orderText, { exact: false }).first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.screenshot({ path: artifactsDir + "/browser-smoke-order-queued.png", fullPage: true });
+
+  assert.deepEqual(pageErrors, [], `Uncaught browser errors:\\n${pageErrors.join("\\n\\n")}`);
   await page.screenshot({ path: artifactsDir + "/browser-smoke.png", fullPage: true });
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\n${pageErrors.join("\n\n")}`);
 
