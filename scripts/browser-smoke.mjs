@@ -158,8 +158,8 @@ try {
   // rather than merely accepting an order in its UI.
   const timelineToggle = page.getByRole("button", { name: "Timeline", exact: true });
   await timelineToggle.waitFor({ state: "visible", timeout: 15_000 });
-  const readDockText = () => timelineToggle.evaluate((button) => button.parentElement?.innerText || "");
-  const dateBefore = await readDockText();
+  const readDisplayedDate = () => timelineToggle.evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
+  const dateBefore = await readDisplayedDate();
   await timelineToggle.evaluate((button) => button.click());
   const oneDayJump = page.locator("button.oh-tap-row").filter({ hasText: /1 day/ }).first();
   await oneDayJump.waitFor({ state: "visible", timeout: 15_000 });
@@ -173,9 +173,15 @@ try {
   }, null, { timeout: 120_000 });
   await page.waitForFunction((before) => {
     const timeline = document.querySelector('button[aria-label="Timeline"]');
-    return Boolean(timeline && (timeline.parentElement?.innerText || "") !== before);
+    return Boolean(timeline && (timeline.parentElement?.children?.[1]?.innerText?.trim() || "") !== before);
   }, dateBefore, { timeout: 30_000 });
+  const dateAfter = await readDisplayedDate();
+  assert.notEqual(dateAfter, dateBefore, "Advancing one day must change the displayed in-game date.");
   await page.screenshot({ path: artifactsDir + "/browser-smoke-turn-advanced.png", fullPage: true });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+  await waitForGameplayReady(page);
+  const dateAfterReload = await page.locator('button[aria-label="Timeline"]').evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
+  assert.equal(dateAfterReload, dateAfter, "The advanced in-game date must survive a browser reload.");
 
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\\n${pageErrors.join("\\n\\n")}`);
   await page.screenshot({ path: artifactsDir + "/browser-smoke.png", fullPage: true });
