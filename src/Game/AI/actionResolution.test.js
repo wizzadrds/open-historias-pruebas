@@ -7,7 +7,7 @@ test("a turn that clears actions resolves planned orders but preserves history",
   const actions = [
     { id: "a", text: "Build a bridge", status: "planned" },
     { id: "b", text: "Old order", status: "resolved" },
-    { id: "c", text: "Keep pending", status: "planned" },
+    { id: "c", text: "Another planned order", status: "planned" },
   ];
   const resolved = resolvePlannedActions(actions, true);
   assert.deepEqual(resolved.map(({ id, status }) => ({ id, status })), [
