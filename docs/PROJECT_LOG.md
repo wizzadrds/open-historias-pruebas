@@ -1,3 +1,12 @@
+## 2026-10-16 — Diagnose browser smoke turn timeout
+
+- The CI run [#64 / 38950734661](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38950734661) failed in the browser smoke test at the assertion waiting for the in-game date to change; regression tests, both builds, and lint passed.
+- Changed `scripts/browser-smoke.mjs` to wait up to 120 seconds for the date transition and include the observed date/timeline text in the error if it times out. This makes the next failure actionable rather than only reporting a generic 30-second timeout; it does not by itself prove the simulation issue is fixed.
+- New commit: `e1ad66ffe36b883d20211e57bc7aa8e6bd88bfe7`. Await CI before treating this test change as verified.
+- Next: use the new diagnostic if the turn still stalls, then add a deterministic test of planned → resolved action state. The smoke test still does not prove the queued free-text order caused a world effect or that an autonomous observe/decide/verify agent exists.
+
+---
+
 ## 2026-10-16 — Browser smoke advances and persists a simulation day
 
 - **Branch/head at entry:** `agent/engineering-quality-gates`, commit `8945fb7e5eda5dc09af8236a34be1bbe81cbcffc`.
