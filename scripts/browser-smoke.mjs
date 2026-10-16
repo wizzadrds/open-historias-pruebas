@@ -102,7 +102,7 @@ try {
   await page.getByText("Choose your country", { exact: true }).waitFor({ timeout: 20_000 });
   // This picker overlays an animated map canvas; force only this click's hit test.
   await page.getByRole("button", { name: "Scenario default", exact: true }).click({ timeout: 15_000, force: true, noWaitAfter: true });
-  await page.getByRole("button", { name: /Medium/ }).click({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Medium/ }).click({ timeout: 15_000, force: true, noWaitAfter: true });
 
   const readActiveGameId = async () => page.evaluate(() => new Promise((resolve, reject) => {
     const request = indexedDB.open("open-historia-web");
