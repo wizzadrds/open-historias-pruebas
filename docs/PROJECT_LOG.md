@@ -1,3 +1,12 @@
+## 2026-10-16 — Share and test queued-order selection
+
+- Extracted `selectPlannedActions` into `src/Game/AI/actionResolution.js` and used it in the fallback turn simulator, so only actions still marked `planned` are eligible to produce fallback events. Added a focused test that resolved and rejected history is excluded and the original ledger is unchanged.
+- Commits: [cee8237](https://github.com/wizzadrds/open-historias-pruebas/commit/cee82373c3bd329e9ee7781e65bdfcaa16a97372), [9b1f101](https://github.com/wizzadrds/open-historias-pruebas/commit/9b1f101a2df16f8921f72c64195ae0ef4c4739e4), [176fc2b](https://github.com/wizzadrds/open-historias-pruebas/commit/176fc2b7691274b5d98d8be582c59ec60be785d0).
+- This tightens one actual execution path, but the fallback still narrates a generic consequence from an order title and does not prove the order's intended world effect. Action resolution is still governed by `clearActions`, not per-order outcome verification. Await exact-head CI before calling this change validated.
+- Next: inspect the new CI run, then trace whether the generated event is tied to the originating action and whether the resulting world state is persisted and read back.
+
+---
+
 ## 2026-10-16 — Verify a real world-state impact
 
 - Replaced the unsupported population-operation test with tests for the marker build operation that the runtime actually accepts. The regression test exercises `applyEventImpactsToWorld`, asserts the marker appears in the returned world, and checks the original snapshot is not mutated; a malformed build must not create an empty-name marker.
