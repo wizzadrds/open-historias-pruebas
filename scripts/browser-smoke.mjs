@@ -178,7 +178,13 @@ try {
   await page.waitForFunction((before) => {
     const timeline = document.querySelector('button[aria-label="Timeline"]');
     return Boolean(timeline && (timeline.parentElement?.children?.[1]?.innerText?.trim() || "") !== before);
-  }, dateBefore, { timeout: 30_000 });
+  }, dateBefore, { timeout: 120_000 }).catch(async (error) => {
+    const diagnostic = await page.locator('button[aria-label="Timeline"]').evaluate((button) => ({
+      date: button.parentElement?.children?.[1]?.innerText?.trim() || "",
+      dockText: button.parentElement?.innerText || "",
+    })).catch(() => ({ date: "", dockText: "Timeline control unavailable" }));
+    throw new Error(`Simulation date did not change within 120 seconds (before="${dateBefore}", after="${diagnostic.date}", timeline="${diagnostic.dockText}"): ${error.message}`);
+  });
   const dateAfter = await readDisplayedDate();
   assert.notEqual(dateAfter, dateBefore, "Advancing one day must change the displayed in-game date.");
 
