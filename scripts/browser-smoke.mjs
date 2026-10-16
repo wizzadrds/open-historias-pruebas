@@ -188,6 +188,13 @@ try {
   // Wait for the actual timeline control before reading the persisted date.
   const reloadedTimeline = page.locator('button[aria-label="Timeline"]');
   await reloadedTimeline.waitFor({ state: "visible", timeout: 90_000 });
+  // The toolbar may mount while its date still shows a placeholder. Wait for
+  // the persisted game state to hydrate before comparing the date.
+  await page.waitForFunction((expectedDate) => {
+    const timeline = document.querySelector('button[aria-label="Timeline"]');
+    const displayedDate = timeline?.parentElement?.children?.[1]?.innerText?.trim() || "";
+    return displayedDate === expectedDate;
+  }, dateAfter, { timeout: 120_000 });
   const dateAfterReload = await reloadedTimeline.evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
   assert.equal(dateAfterReload, dateAfter, "The advanced in-game date must survive a browser reload.");
 
