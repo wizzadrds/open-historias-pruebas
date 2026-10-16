@@ -1,7 +1,7 @@
 /*! Open Historia — action resolution tests © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolvePlannedActions } from "./actionResolution.js";
+import { resolvePlannedActions, selectPlannedActions } from "./actionResolution.js";
 
 test("a turn that clears actions resolves planned orders but preserves history", () => {
   const actions = [
@@ -21,4 +21,19 @@ test("a turn that clears actions resolves planned orders but preserves history",
 test("a turn that does not clear actions leaves planned orders pending", () => {
   const actions = [{ id: "a", status: "planned" }, { id: "b", status: "rejected" }];
   assert.deepEqual(resolvePlannedActions(actions, false), actions);
+});
+
+test("only planned orders are eligible for the next simulation pass", () => {
+  const actions = [
+    { id: "queued", status: "planned" },
+    { id: "completed", status: "resolved" },
+    { id: "rejected", status: "rejected" },
+  ];
+
+  assert.deepEqual(selectPlannedActions(actions).map(({ id }) => id), ["queued"]);
+  assert.deepEqual(actions.map(({ id, status }) => ({ id, status })), [
+    { id: "queued", status: "planned" },
+    { id: "completed", status: "resolved" },
+    { id: "rejected", status: "rejected" },
+  ]);
 });
