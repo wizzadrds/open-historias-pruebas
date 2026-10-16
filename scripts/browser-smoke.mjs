@@ -92,7 +92,12 @@ try {
 
   await page.screenshot({ path: artifactsDir + "/browser-smoke-menu.png", fullPage: true });
 
-  await page.getByRole("button", { name: "Start from a scenario", exact: true }).click({ timeout: 15_000, noWaitAfter: true });
+  const startScenario = page.getByRole("button", { name: "Start from a scenario", exact: true });
+  await startScenario.waitFor({ state: "visible", timeout: 15_000 });
+  // The home screen can retain an invisible animated hit-test layer briefly;
+  // activate the visible control directly and assert the next screen appears.
+  await startScenario.evaluate((button) => button.click());
+  await page.getByRole("button", { name: "New Game", exact: true }).first().waitFor({ state: "visible", timeout: 20_000 });
   await page.getByRole("button", { name: "New Game", exact: true }).first().click({ timeout: 30_000 });
   await page.getByText("Choose your country", { exact: true }).waitFor({ timeout: 20_000 });
   // This picker overlays an animated map canvas; force only this click's hit test.
