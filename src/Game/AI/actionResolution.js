@@ -8,3 +8,9 @@ export const resolvePlannedActions = (actions, clearActions) => actions.map((act
   ...action,
   status: action.status === "planned" && clearActions ? "resolved" : action.status,
 }));
+
+/**
+ * Return only queued orders eligible for the next simulation pass.
+ * Keep this filter shared so resolved/rejected history cannot be replayed.
+ */
+export const selectPlannedActions = (actions) => actions.filter((action) => action.status === "planned");
