@@ -207,7 +207,7 @@ try {
   await page.screenshot({ path: artifactsDir + "/browser-smoke.png", fullPage: true });
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\n${pageErrors.join("\n\n")}`);
 
-  console.log("Browser E2E passed: game created and reloaded, a manual order was queued and removed from planned orders after the turn, one simulation day advanced, and no uncaught page errors were observed.");
+  console.log("Browser E2E passed: game created and reloaded, a manual order was queued, one simulation day advanced and persisted after reload, and no uncaught page errors were observed.");
 } catch (error) {
   if (browser) {
     try {
