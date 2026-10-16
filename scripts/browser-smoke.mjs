@@ -203,7 +203,6 @@ try {
   const dateAfterReload = await reloadedTimeline.evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
   assert.equal(dateAfterReload, dateAfter, "The advanced in-game date must survive a browser reload.");
 
-  assert.deepEqual(pageErrors, [], `Uncaught browser errors:\\n${pageErrors.join("\\n\\n")}`);
   await page.screenshot({ path: artifactsDir + "/browser-smoke.png", fullPage: true });
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\n${pageErrors.join("\n\n")}`);
 
