@@ -184,7 +184,11 @@ try {
   await page.screenshot({ path: artifactsDir + "/browser-smoke-turn-advanced.png", fullPage: true });
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
   await waitForGameplayReady(page);
-  const dateAfterReload = await page.locator('button[aria-label="Timeline"]').evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
+  // The generic loading text can disappear before the gameplay toolbar mounts.
+  // Wait for the actual timeline control before reading the persisted date.
+  const reloadedTimeline = page.locator('button[aria-label="Timeline"]');
+  await reloadedTimeline.waitFor({ state: "visible", timeout: 90_000 });
+  const dateAfterReload = await reloadedTimeline.evaluate((button) => button.parentElement?.children?.[1]?.innerText?.trim() || "");
   assert.equal(dateAfterReload, dateAfter, "The advanced in-game date must survive a browser reload.");
 
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\\n${pageErrors.join("\\n\\n")}`);
