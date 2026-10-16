@@ -276,7 +276,7 @@ import { getLibraryState } from "../../runtime/library.js";
 import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
-import { resolvePlannedActions } from "./actionResolution.js";
+import { resolvePlannedActions, selectPlannedActions } from "./actionResolution.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
@@ -7244,7 +7244,7 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
 };
 
 const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
-  const plannedActions = normalizeActions(bundle.actions).filter((action) => action.status === "planned");
+  const plannedActions = selectPlannedActions(normalizeActions(bundle.actions));
   const firstThreeActions = plannedActions.slice(0, 3);
   const events = [];
 
