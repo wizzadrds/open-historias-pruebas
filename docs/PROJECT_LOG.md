@@ -1,3 +1,12 @@
+## 2026-10-16 — Verify a real world-state impact
+
+- Replaced the unsupported population-operation test with tests for the marker build operation that the runtime actually accepts. The regression test exercises `applyEventImpactsToWorld`, asserts the marker appears in the returned world, and checks the original snapshot is not mutated; a malformed build must not create an empty-name marker.
+- Change: [commit d91f84f](https://github.com/wizzadrds/open-historias-pruebas/commit/d91f84f21948c9a2211348ec28ec01f9b1f9e95c). Exact-head [CI run 38962179941](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38962179941) passed both `verify` and `lint`.
+- This verifies an event's supported marker operation can change the returned world-state snapshot. It still does **not** prove a particular queued player order causes that event, that the resulting world is persisted and reloaded correctly, or that an autonomous agent observes the outcome and adapts its next decision.
+- Next: connect the queued-order identity to turn input and applied outcomes, and add a regression test at that integration seam. Keep PR #1 open and unmerged.
+
+---
+
 ## 2026-10-16 — Isolate and test planned-action resolution
 
 - The diagnostic browser-smoke change was validated by [CI run #66 / 38951926171](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38951926171): both `verify` and `lint` passed on commit `b64dafda0d046ccab512f39a03a15d3a9b2601e8`. This confirms the longer date-change wait did not break the smoke journey, but it does not yet validate the newest action-resolution changes.
