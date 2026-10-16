@@ -1,3 +1,15 @@
+## 2026-10-16 — Browser smoke advances and persists a simulation day
+
+- **Branch/head at entry:** `agent/engineering-quality-gates`, commit `8945fb7e5eda5dc09af8236a34be1bbe81cbcffc`.
+- **Changed file:** `scripts/browser-smoke.mjs`; removed one duplicate final uncaught-page-error assertion. No gameplay implementation was changed by that cleanup.
+- **Latest exact-head CI:** [run #63 / 38949391717](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38949391717) completed successfully for both `verify` and `lint`.
+- **Current browser-smoke journey:** enters the web app, creates a Medium scenario game, verifies active-game ID persistence after reload, queues a manual free-text order, advances one simulation day, asserts the displayed date changes and survives another reload, and checks for uncaught page errors.
+- **Important limitation:** the free-text order is only verified as queued. The test does not yet read the persisted actions ledger to prove the order transitioned from `planned` to `resolved`, nor does it establish a deterministic world effect from that order. Do not describe this as proof of autonomous play.
+- **Architecture finding:** in `src/Game/AI/gameplay.js`, planned actions are marked `resolved` only when the simulation result sets `clearActions`. This is a candidate seam for a focused deterministic regression test, but the browser test should not assume every arbitrary text order causes a particular world change.
+- **Next actions:** (1) trace runtime actions read/write functions and the web IndexedDB persistence contract; (2) add a deterministic test for action status resolution around the turn-application seam using a controlled result; (3) separately design an observe → choose → execute → verify loop for actual player decisions, reusing existing provider/output-validation infrastructure rather than inventing an unconfigured external agent. Keep PR #1 open and unmerged.
+
+---
+
 ## Verificación completa de CI — 2026-10-15
 
 - La ejecución [38792700892](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38792700892), sobre el commit `30107cb98b6bcb6059493e4e832bc56d458a7d58`, terminó con conclusión **success**.
