@@ -153,11 +153,35 @@ try {
   await page.getByText(orderText, { exact: false }).first().waitFor({ state: "visible", timeout: 15_000 });
   await page.screenshot({ path: artifactsDir + "/browser-smoke-order-queued.png", fullPage: true });
 
+  // Advance one in-game day and verify the displayed simulation date changes.
+  // This is the first end-to-end assertion that the game processes a turn,
+  // rather than merely accepting an order in its UI.
+  const timelineToggle = page.getByRole("button", { name: "Timeline", exact: true });
+  await timelineToggle.waitFor({ state: "visible", timeout: 15_000 });
+  const readDockText = () => timelineToggle.evaluate((button) => button.parentElement?.innerText || "");
+  const dateBefore = await readDockText();
+  await timelineToggle.evaluate((button) => button.click());
+  const oneDayJump = page.locator("button.oh-tap-row").filter({ hasText: /1 day/ }).first();
+  await oneDayJump.waitFor({ state: "visible", timeout: 15_000 });
+  await oneDayJump.evaluate((button) => button.click());
+  await page.waitForFunction(() => {
+    const timeline = document.querySelector('button[aria-label="Timeline"]');
+    if (!timeline) return false;
+    const dockText = timeline.parentElement?.innerText || "";
+    const loading = /Simulating|Processing|Loading/i.test(dockText);
+    return !loading;
+  }, null, { timeout: 120_000 });
+  await page.waitForFunction((before) => {
+    const timeline = document.querySelector('button[aria-label="Timeline"]');
+    return Boolean(timeline && (timeline.parentElement?.innerText || "") !== before);
+  }, dateBefore, { timeout: 30_000 });
+  await page.screenshot({ path: artifactsDir + "/browser-smoke-turn-advanced.png", fullPage: true });
+
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\\n${pageErrors.join("\\n\\n")}`);
   await page.screenshot({ path: artifactsDir + "/browser-smoke.png", fullPage: true });
   assert.deepEqual(pageErrors, [], `Uncaught browser errors:\n${pageErrors.join("\n\n")}`);
 
-  console.log("Browser E2E passed: game created and reloaded, a manual order was queued, and no uncaught page errors were observed.");
+  console.log("Browser E2E passed: game created and reloaded, a manual order was queued, one simulation day advanced, and no uncaught page errors were observed.");
 } catch (error) {
   if (browser) {
     try {
