@@ -1,3 +1,13 @@
+## 2026-10-16 — Isolate and test planned-action resolution
+
+- The diagnostic browser-smoke change was validated by [CI run #66 / 38951926171](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38951926171): both `verify` and `lint` passed on commit `b64dafda0d046ccab512f39a03a15d3a9b2601e8`. This confirms the longer date-change wait did not break the smoke journey, but it does not yet validate the newest action-resolution changes.
+- Added `src/Game/AI/actionResolution.js` and `actionResolution.test.js` to isolate the exact rule that a planned order becomes resolved only when `clearActions` is true; wired the helper into `src/Game/AI/gameplay.js`.
+- Focused tests cover both branches (clear actions and retain planned actions), and ensure the input ledger is not mutated.
+- Current head at this log update: `a1e0fd70a3c8673afa1c498e59e5392b2eb37151`. CI for the latest change is queued/running; await its result before marking the helper change verified.
+- Remaining gap: resolution status is a bookkeeping assertion, not proof that an order changes the world as intended. Next work is to inspect a reliable persisted-ledger read path and then build an observe → choose → execute → verify loop with explicit decision outputs and bounded retries. No autonomous agent is claimed as complete.
+
+---
+
 ## 2026-10-16 — Diagnose browser smoke turn timeout
 
 - The CI run [#64 / 38950734661](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/38950734661) failed in the browser smoke test at the assertion waiting for the in-game date to change; regression tests, both builds, and lint passed.
