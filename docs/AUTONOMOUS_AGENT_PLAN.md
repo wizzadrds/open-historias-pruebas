@@ -41,10 +41,10 @@ File: `src/Game/AI/actionResolution.js`
 - `resolvePlannedActions(actions, clearActions)` marks planned entries as `attempted` when the turn result says `clearActions`; it does not treat a turn-level signal as proof of individual success.
 - The fallback simulator only emits a player-action event for a concrete chat order with named participants and opening text. Other free-text orders remain unverified instead of receiving fabricated consequences.
 - `verifyPersistedChatOutcomes` compares the exact pre-write canonical chat snapshot with a post-write canonical read. It requires a newly observed stable thread ID, matching participants and opening text, and a unique match. One persisted thread cannot verify duplicate orders twice.
-- The turn persistence path applies the verifier only to the bounded set of fallback chat orders actually eligible for execution. The latest simulation-history entry records per-order `verified`/`unverified` outcomes and reasons; `renderLastTurnReceipt` carries those outcomes into the next decision prompt.
-- Focused tests cover positive, missing, pre-existing, ambiguous, duplicate, appended-to-existing-thread, and missing-stable-ID cases, plus evidence normalization and bounded selection.
+- The turn persistence path verifies the bounded set of fallback chat orders eligible for execution by comparing canonical chat state before and after the write. It also verifies a narrow territorial order when an originating action is linked through `event.actionIds` and the canonical region-owner override changes to the expected owner. An explicit `expectedEffect: { type: "region-owner", regionId, owner }` takes precedence; otherwise one unambiguous linked `regionTransfers` operation may supply the expectation.
+- The latest simulation-history entry records per-order `verified`/`unverified` outcomes and reasons; `renderLastTurnReceipt` carries those outcomes into the next decision prompt. Regression tests cover causal-link requirements, no-op/wrong owner changes, ambiguous transfers, canonical snapshot absence, chat verification edge cases, normalization/reload, and feedback rendering.
 
-**Important limitation:** positive postcondition verification is still restricted to newly persisted fallback diplomatic-chat threads. It does not prove territory, military, policy, project, or general free-text order effects, and it is not yet a complete autonomous observe → decide → execute → verify → adapt loop.
+**Important limitation:** positive postcondition verification remains narrow: newly persisted fallback diplomatic-chat threads and region-owner changes only. It does not yet verify military movement, policy, project, or general free-text order effects, and it is not yet a complete autonomous observe → decide → execute → verify → adapt loop.
 
 ### World-impact regression test
 
@@ -69,21 +69,23 @@ These changes improve evidence for one action type; they do not establish causal
 
 ## Progress estimate (2026-10-17)
 
-For the autonomous-player objective in this document (not the whole Open Historia game), estimate **35–45% implemented**. This is a planning judgment, not a code-coverage metric.
+For the autonomous-player objective in this document (not the whole Open Historia game), estimate **55% implemented**. This is a planning judgment, not a code-coverage metric.
 
-- Done in the current slice: conservative attempted/resolved lifecycle; evidence-gated promotion helper; post-write verification for newly created diplomatic chat threads; verified/unverified outcome ledger with reasons passed into the next-turn receipt; regression and browser smoke coverage. The last inspected code CI run was green on its exact code SHA, but it predates the latest documentation-only commits.
-- Not done: general order-to-event causal identity beyond the narrow fallback-chat path, post-write verification for territory/military/policy/project operations, broad deterministic integration coverage, autonomous goal/order generation, demonstrated adaptation to verified outcomes, and an end-to-end autonomous acceptance scenario.
-- Next implementation target: select one supported non-chat operation with a deterministic canonical postcondition; preserve the originating order ID through execution; re-read canonical persisted world state; test positive, negative, ambiguous and reload cases before extending the pattern to other operations.
+- Done in the current slice: conservative attempted/resolved lifecycle; evidence-gated promotion helper; post-write verification for newly created diplomatic chat threads and a narrow region-owner change; verified/unverified outcome ledger with reasons; outcome receipt fed into the next jump's prompt; deterministic regression coverage; browser E2E for game creation, order queueing, turn advancement, and date persistence across reload. Workflow run [39045607176](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39045607176) passed all configured checks on exact code head `7181b3168bfa776998fe89a43ad84d491ed761ea`. A later documentation-only commit is awaiting its own CI result.
+- Not done: causal identity for general orders, verification for military/policy/project operations, evaluation of partial success/cost/side effects, autonomous goal/order generation, opt-in orchestration and guardrails, and an end-to-end autonomous acceptance scenario where the next order changes based on a controlled previous outcome.
+- Next implementation target: build a deterministic observation/decision adapter that consumes the persisted outcome receipt and chooses/validates a next action in a testable way, without bypassing the existing queue or turn engine.
 
 ## What remains to implement
 
 ### P0 — Make the existing workflow reliable
 
-1. Diagnose and fix the current Chromium smoke failure without weakening assertions or turning the test into a false positive.
-2. Re-run CI on the latest branch head and record the exact SHA and result.
-3. Keep the PR open and unmerged until required checks pass.
+1. **Complete:** diagnose and fix the animated-control Chromium smoke failure using direct dispatch only after visibility checks and follow-up state assertions.
+2. **Complete for code head `7181b316`:** regression tests, desktop/browser builds, Chromium smoke, Android bundle, and lint all passed in workflow run [39045607176](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39045607176). Re-check CI for later commits before claiming the branch head is green.
+3. Keep the PR open and unmerged until code review and acceptance criteria are complete.
 
 ### P1 — Trace one order from input to observable outcome
+
+**Status: partial.** Stable action IDs, attempted lifecycle, narrow chat/territorial verification, and ambiguous/no-effect cases are covered; broad action-to-event attribution remains incomplete.
 
 1. Give every queued order a stable identity (reuse an existing stable action ID if one is already present).
 2. Ensure that identity survives prompt construction and is associated with any resulting event/operation where attribution is possible.
@@ -92,6 +94,8 @@ For the autonomous-player objective in this document (not the whole Open Histori
 5. Add integration tests for the actual turn-application seam, rather than testing only isolated helpers.
 
 ### P2 — Verify persisted state
+
+**Status: partial.** Canonical read-back and reload-safe ledger persistence exist for the supported chat and region-owner cases; the rest of the operation types remain unverified.
 
 1. After applying a turn, read the canonical persisted world and action ledgers back through the runtime persistence API.
 2. Compare the observed state to the pre-turn snapshot and the expected postconditions for each supported order type.
@@ -131,8 +135,8 @@ Then add a browser-level journey for the user-visible autonomous mode. Mocked/de
 | Select only planned orders in shared helper paths | Implemented and unit-tested |
 | Avoid treating queue-clearing as proof of success | Implemented and unit-tested (`attempted`, not `resolved`) |
 | Apply a supported event operation to returned world state | Implemented and regression-tested |
-| Prove a specific order caused the world effect | Implemented narrowly for eligible fallback diplomatic-chat orders; not general |
-| Verify each order against canonical persisted postconditions | Implemented only for newly persisted diplomatic-chat threads |
+| Prove a specific order caused the world effect | Implemented narrowly for eligible fallback diplomatic-chat orders and linked region-owner transfers; not general |
+| Verify each order against canonical persisted postconditions | Implemented for newly persisted diplomatic-chat threads and one region-owner postcondition; military/policy/project/general orders remain unsupported |
 | Record evidence-backed per-order outcomes | Implemented as a verified/unverified ledger with reasons in simulation history and the next-turn receipt |
 | Autonomous observe → decide → execute → verify → adapt loop | Not implemented end-to-end |
 | Full end-to-end autonomous gameplay acceptance test | Not implemented |
