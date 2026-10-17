@@ -311,11 +311,11 @@ test("the next jump receives verified and unverified order outcomes as a separat
           source: "canonical-chat-state-after-write",
         },
       },
-      { id: "order-2", title: "Move the army", status: "unverified" },
+      { id: "order-2", title: "Move the army", status: "unverified", reason: "No fallback postcondition verifier ran for this order." },
     ],
   }]);
   assert.match(block, /ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN/);
   assert.match(block, /VERIFIED — Open talks with Rival: Persisted thread contains requested participants/);
-  assert.match(block, /UNVERIFIED — Move the army: no positive postcondition was established/);
+  assert.match(block, /UNVERIFIED — Move the army: No fallback postcondition verifier ran for this order/);
   assert.match(block, /UNVERIFIED orders remain attempted/);
 });
