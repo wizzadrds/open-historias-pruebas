@@ -244,3 +244,13 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Added regression tests for exact matches, missing effects, pre-existing effects, and ambiguous matches.
 - CI for the new integration is running on commit `ea759c468f69934a7b98c28dcd2318def3e8b048`: [workflow run 39030772103](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39030772103). Do not treat it as passing until it completes.
 - Remaining limitation: this verification currently covers the fallback engine's concrete diplomatic-chat postcondition only. It does not yet prove territorial, military, policy, or other free-text order effects, and the verified ledger still needs explicit presentation in the next decision prompt.
+
+
+### Verified order ledger reaches the next decision — 2026-10-17
+
+- The post-write verifier now stores a compact `actionOutcomes` ledger on the latest simulation-history entry. Each order processed this turn is explicitly marked `verified` or `unverified`; only a verified record carries a positive postcondition and source.
+- `renderLastTurnReceipt` now appends this ledger to the next turn's application receipt. The next model request is instructed not to treat unverified intended effects as facts.
+- Added a regression test proving the next-turn receipt distinguishes a verified diplomatic effect from an unverified order.
+- Corrected accent normalization in the participant/message comparison.
+- CI for the receipt-rendering changes is pending at [workflow run 39031770529](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39031770529). The full end-to-end change is not considered validated until this run completes.
+- Scope remains deliberately narrow: only concrete fallback diplomatic-chat effects have a positive postcondition verifier. Other order types are honestly reported as unverified, not inferred successful.
