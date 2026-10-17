@@ -202,7 +202,10 @@ test("persisted world verification requires a real region-owner change in canoni
     "a matching world diff without explicit event-to-order linkage is insufficient",
   );
   assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, after, "round-8-post-write", [
-    { actionIds: ["take-region"] },
+    {
+      actionIds: ["take-region"],
+      impacts: { regionTransfers: [{ regionId: "r-1", toCode: "New Republic" }] },
+    },
   ]), {
     "take-region": {
       verified: true,
