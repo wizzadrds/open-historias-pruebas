@@ -276,7 +276,7 @@ import { getLibraryState } from "../../runtime/library.js";
 import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
-import { resolvePlannedActions, selectPlannedActions } from "./actionResolution.js";
+import { resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
@@ -7245,7 +7245,10 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
 
 const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
   const plannedActions = selectPlannedActions(normalizeActions(bundle.actions));
-  const firstThreeActions = plannedActions.slice(0, 3);
+  // The fallback cannot translate arbitrary prose into verified world impacts.
+  // Only concrete chat orders have an effect it can actually apply (a persisted
+  // chat with named participants and a non-empty opening message).
+  const firstThreeActions = selectFallbackChatActions(plannedActions).slice(0, 3);
   const events = [];
 
   // Ancient/FMG scenarios may use textual or BCE dates. Only perform calendar
@@ -7294,7 +7297,9 @@ const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
     const midpoint = advanceGameDate(Math.max(1, Math.round(Math.max(days, 1) / 2)));
     events.push({
       date: midpoint,
-      description: `Foreign ministries and general staffs keep adjusting to the current balance of power while ${bundle.game.country} gathers its next move.`,
+      description: plannedActions.length > 0
+        ? `The fallback engine advanced time but could not verify a world-state effect for the queued free-text order(s). They remain recorded as attempted, not fulfilled; inspect the current map and records before choosing what to do next.`
+        : `Foreign ministries and general staffs keep adjusting to the current balance of power while ${bundle.game.country} gathers its next move.`,
       impacts: {
         createdChats: [],
         polityChanges: [],

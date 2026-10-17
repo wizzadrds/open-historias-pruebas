@@ -39,7 +39,8 @@ File: `src/Game/AI/actionResolution.js`
 - `selectPlannedActions(actions)` selects entries whose status is `planned`, so resolved/rejected history is not replayed through code paths using this helper.
 - The helper is shared with the fallback turn simulator and with planned-order counting for event-slot budgeting, keeping those selection rules consistent.
 - `resolvePlannedActions(actions, clearActions)` marks planned entries as `attempted` when the turn result says `clearActions` and otherwise leaves their statuses unchanged. This is intentionally not a success claim: `clearActions` is a turn-level signal, not per-order effect evidence.
-- Focused unit tests check selection, resolution branches, history preservation, and avoiding mutation of the input array.
+- The fallback simulator now emits a player-action event only for a chat order with named participants and an opening message, whose chat can actually be persisted. Other free-text orders remain `attempted`; the fallback explicitly says it could not verify a world-state effect rather than inventing consequences from an order title.
+- Focused unit tests check selection, resolution branches, history preservation, avoiding mutation of the input array, and ensuring fallback turns only turn concrete chat orders into action events.
 
 **Important limitation:** `clearActions` is a turn-level signal. It does not establish, order by order, that an order had the intended effect. The current resolution helper therefore is not a verified action-outcome system.
 

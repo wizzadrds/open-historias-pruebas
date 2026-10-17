@@ -1,3 +1,13 @@
+## 2026-10-17 — Remove invented fallback consequences for free-text orders
+
+- In `src/Game/AI/gameplay.js`, fallback turns no longer turn arbitrary free-text order titles into events claiming immediate administrative or political consequences. The fallback only creates an action event for a chat order with named participants and a non-empty opening message, an effect the engine can actually persist.
+- For other queued orders, the fallback timeline now explicitly says it could not verify a world-state effect and that the orders remain attempted, not fulfilled. The action ledger is the record of attempted orders; the map and persisted records remain authoritative for consequences.
+- Added `selectFallbackChatActions` in `src/Game/AI/actionResolution.js` and regression tests for concrete chat eligibility and for ensuring `attempted` orders cannot be replayed as `planned`.
+- Verification at authoring time: source changes committed below; CI has not yet run to completion. Do not treat this as fully validated until the exact-head workflow passes.
+- Next: implement per-order causal links and postcondition checks against the persisted world; the fallback change removes a false claim but does not itself fulfill arbitrary orders. PR #1 remains open and unmerged.
+
+---
+
 ## 2026-10-17 — Stop treating turn completion as proof an order succeeded
 
 - Updated `src/Game/AI/actionResolution.js`: when the turn-level `clearActions` flag closes the pending queue, individual planned orders now become `attempted`, not `resolved`. The flag proves only that the turn processed/cleared the queue; it does not prove the requested effect occurred.

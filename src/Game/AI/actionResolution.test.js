@@ -38,3 +38,24 @@ test("only planned orders are eligible for the next simulation pass", () => {
     { id: "rejected", status: "rejected" },
   ]);
 });
+
+
+test("fallback only turns concrete chat orders into world events", () => {
+  const actions = [
+    { id: "free-text", kind: "action", title: "Build a bridge", status: "planned" },
+    { id: "no-invitees", kind: "chat", title: "Negotiate", invitees: [], chatStarter: "Terms?" },
+    { id: "no-message", kind: "chat", title: "Negotiate", invitees: ["Rival"], chatStarter: "  " },
+    { id: "concrete-chat", kind: "chat", title: "Negotiate", invitees: ["Rival"], chatStarter: "Let us discuss terms." },
+  ];
+  assert.deepEqual(selectFallbackChatActions(actions).map(({ id }) => id), ["concrete-chat"]);
+});
+
+test("attempted orders are not replayed as pending orders", () => {
+  const actions = [
+    { id: "pending", status: "planned" },
+    { id: "attempted", status: "attempted" },
+    { id: "fulfilled", status: "resolved" },
+    { id: "rejected", status: "rejected" },
+  ];
+  assert.deepEqual(selectPlannedActions(actions).map(({ id }) => id), ["pending"]);
+});

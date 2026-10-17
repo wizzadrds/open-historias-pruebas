@@ -18,3 +18,17 @@ export const resolvePlannedActions = (actions, clearActions) => actions.map((act
  * Keep this filter shared so resolved/rejected history cannot be replayed.
  */
 export const selectPlannedActions = (actions) => actions.filter((action) => action.status === "planned");
+
+
+/**
+ * Fallback turns cannot infer that an arbitrary free-text order changed the
+ * world. Only a chat order with concrete participants and opening text has a
+ * directly representable effect in the fallback engine.
+ */
+export const selectFallbackChatActions = (actions) => actions.filter((action) =>
+  action.kind === "chat"
+  && Array.isArray(action.invitees)
+  && action.invitees.length > 0
+  && typeof action.chatStarter === "string"
+  && action.chatStarter.trim().length > 0
+);
