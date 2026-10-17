@@ -282,3 +282,10 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Corrected the causal baseline for diplomatic-order verification: it now uses the exact canonical chat list re-read immediately before the turn writes chats, not the older state captured when the turn began.
 - This closes a concurrency gap where a thread created by the player or another writer during generation could be absent from the old snapshot and then be incorrectly counted as a new effect of the queued order.
 - If the pre-write read fails, the order stays unverified with an explicit reason; the fallback write path is not treated as proof. CI pending.
+
+
+## Require a genuinely new persisted thread for chat verification — 2026-10-17
+
+- Tightened `verifyPersistedChatOutcomes`: a matching message in an already-existing chat thread no longer proves that the fallback created the requested thread. Positive evidence now requires a stable thread ID that was absent from the exact pre-write snapshot.
+- Added regression cases for an appended message on an existing thread and for a matching post-write thread without a stable ID. This is intentionally conservative: without a new identifiable thread, the order remains unverified.
+- Validation: GitHub Actions has not yet run for the new code/test commits. The previous head `511d6bcab1b9cb948cf7e6052ec6998eb55e4ddb` passed workflow run [39037234345](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39037234345) (regression tests, desktop/browser builds, Chromium smoke, Android bundle, and lint); that result does not validate these newer commits.
