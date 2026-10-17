@@ -25,6 +25,16 @@ const waitForServer = async (url, timeoutMs = 30_000) => {
   throw new Error(`Preview did not become ready at ${url}: ${lastError?.message || "timeout"}`);
 };
 
+const dismissProviderSetup = async (page) => {
+  // Fresh browser profiles have no provider key. The optional setup dialog can
+  // cover gameplay controls even though the active game has already persisted.
+  const notNow = page.getByRole("button", { name: "Not now", exact: true });
+  if (await notNow.isVisible().catch(() => false)) {
+    await notNow.evaluate((button) => button.click());
+    await notNow.waitFor({ state: "hidden", timeout: 15_000 });
+  }
+};
+
 const waitForGameplayReady = async (page, timeout = 90_000) => {
   await page.waitForFunction(() => {
     const text = document.querySelector("#root")?.innerText || "";
@@ -135,12 +145,14 @@ try {
     if (!activeGameId) await delay(500);
   }
   assert.ok(activeGameId, "Creating a game must persist a non-empty activeGameId.");
+  await dismissProviderSetup(page);
   await waitForGameplayReady(page);
   await page.screenshot({ path: artifactsDir + "/browser-smoke-active-game.png", fullPage: true });
 
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
   await delay(2_000);
   assert.equal(await readActiveGameId(), activeGameId, "The active game must survive a browser reload.");
+  await dismissProviderSetup(page);
   // Do not count persistence as a successful reload if the game remains on its loading screen.
   await waitForGameplayReady(page);
   await delay(2_000);
