@@ -262,3 +262,11 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Made the fallback chat selector accept an explicit limit and use the same limit both when generating fallback effects and when verifying persisted outcomes. Added tests for bounded and zero-result selection.
 - CI for the latest changes: [workflow run 39035817036](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39035817036). Treat as pending until it completes.
 - Remaining scope: positive verification still applies only to concrete fallback diplomatic chats. Other order types stay unverified until each has a reliable, order-specific canonical postcondition.
+
+
+## Prevent duplicate orders from claiming the same persisted effect — 2026-10-17
+
+- Tightened `verifyPersistedChatOutcomes` so one canonical persisted chat thread can verify at most one queued order. Two identical orders can no longer both be marked resolved by the same single thread.
+- Added a regression test for duplicate participant/message orders against one persisted thread.
+- This remains intentionally conservative: distinct effects need distinct canonical evidence; unverified orders remain attempted.
+- CI pending for this change.
