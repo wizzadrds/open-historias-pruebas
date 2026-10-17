@@ -307,7 +307,7 @@ export const renderLastTurnReceipt = (simulationHistory) => {
     "Only entries marked VERIFIED have a positive post-write state check. UNVERIFIED orders remain attempted; do not treat their intended effects as facts.",
     ...outcomes.map((outcome) => outcome?.status === "verified"
       ? `- VERIFIED — ${clip(outcome.title, 100)}: ${clip(outcome.verification?.postcondition, 180)} (source: ${clip(outcome.verification?.source, 80)}).`
-      : `- UNVERIFIED — ${clip(outcome?.title || "Untitled order", 100)}: no positive postcondition was established.`),
+      : `- UNVERIFIED — ${clip(outcome?.title || "Untitled order", 100)}: ${clip(outcome?.reason || "no positive postcondition was established", 180)}`),
   ];
   return [receipt, lines.join("\n")].filter(Boolean).join("\n\n");
 };
