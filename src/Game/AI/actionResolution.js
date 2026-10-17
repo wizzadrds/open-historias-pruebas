@@ -88,6 +88,9 @@ const hasOpeningText = (chat, text) => (Array.isArray(chat?.messages) ? chat.mes
 export const verifyPersistedChatOutcomes = (actions, beforeChats, afterChats, observedAt) => {
   if (!Array.isArray(beforeChats) || !Array.isArray(afterChats) || !observedAt) return {};
   const outcomes = {};
+  // One persisted thread can prove at most one queued order. Without this
+  // reservation, duplicate orders could both claim the same canonical effect.
+  const claimedThreads = new Set();
   for (const action of actions) {
     if (!action?.id || !Array.isArray(action.invitees) || !action.chatStarter?.trim()) continue;
     const expected = action.invitees.map(normalizeEvidenceText).filter(Boolean).sort();
@@ -98,7 +101,8 @@ export const verifyPersistedChatOutcomes = (actions, beforeChats, afterChats, ob
     if (alreadyExisted) continue;
     const matches = afterChats.filter((chat) =>
       JSON.stringify(participantNames(chat)) === JSON.stringify(expected) && hasOpeningText(chat, text));
-    if (matches.length !== 1) continue;
+    if (matches.length !== 1 || claimedThreads.has(matches[0])) continue;
+    claimedThreads.add(matches[0]);
     outcomes[action.id] = {
       verified: true,
       postcondition: "The persisted diplomatic thread contains the requested participants and opening message.",
