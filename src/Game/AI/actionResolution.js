@@ -88,6 +88,13 @@ const hasOpeningText = (chat, text) => (Array.isArray(chat?.messages) ? chat.mes
 export const verifyPersistedChatOutcomes = (actions, beforeChats, afterChats, observedAt) => {
   if (!Array.isArray(beforeChats) || !Array.isArray(afterChats) || !observedAt) return {};
   const outcomes = {};
+  // A message appended to an existing thread is not evidence that this fallback
+  // created the requested new thread. Require stable thread IDs and exclude every
+  // thread already present in the exact pre-write snapshot.
+  const beforeThreadIds = new Set(beforeChats
+    .map((chat) => chat?.id)
+    .filter((id) => id !== undefined && id !== null && String(id).trim())
+    .map(String));
   // One persisted thread can prove at most one queued order. Without this
   // reservation, duplicate orders could both claim the same canonical effect.
   const claimedThreads = new Set();
@@ -100,7 +107,12 @@ export const verifyPersistedChatOutcomes = (actions, beforeChats, afterChats, ob
       JSON.stringify(participantNames(chat)) === JSON.stringify(expected) && hasOpeningText(chat, text));
     if (alreadyExisted) continue;
     const matches = afterChats.filter((chat) =>
-      JSON.stringify(participantNames(chat)) === JSON.stringify(expected) && hasOpeningText(chat, text));
+      chat?.id !== undefined
+      && chat?.id !== null
+      && String(chat.id).trim()
+      && !beforeThreadIds.has(String(chat.id))
+      && JSON.stringify(participantNames(chat)) === JSON.stringify(expected)
+      && hasOpeningText(chat, text));
     if (matches.length !== 1 || claimedThreads.has(matches[0])) continue;
     claimedThreads.add(matches[0]);
     outcomes[action.id] = {
