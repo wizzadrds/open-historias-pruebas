@@ -340,6 +340,6 @@ test("the next jump receives verified and unverified order outcomes as a separat
   assert.match(block, /Adapt the next decision to this evidence/);
   assert.match(block, /inspect the current map and records first/);
   assert.match(block, /do not repeat a VERIFIED effect unless the current state shows it was lost/);
-  assert.match(block, /VERIFIED — Open talks with Rival:[^\\n]+Next step: compare the current state with this postcondition/);
-  assert.match(block, /UNVERIFIED — Move the army:[^\\n]+Next step: inspect the current map and records before deciding whether a concrete retry is still needed/);
+  assert.ok(block.includes("VERIFIED — Open talks with Rival: Persisted thread contains requested participants and opening message. (source: canonical-chat-state-after-write). Next step: compare the current state with this postcondition;"));
+  assert.ok(block.includes("UNVERIFIED — Move the army: No fallback postcondition verifier ran for this order.. Next step: inspect the current map and records before deciding whether a concrete retry is still needed."));
 });
