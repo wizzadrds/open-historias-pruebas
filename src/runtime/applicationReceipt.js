@@ -294,10 +294,20 @@ export const renderApplicationReceipt = (receipt, {
 export const renderLastTurnReceipt = (simulationHistory) => {
   const record = selectLastJumpRecord(simulationHistory);
   if (!record) return "";
-  return renderApplicationReceipt(record.receipt, {
+  const receipt = renderApplicationReceipt(record.receipt, {
     fallbackReason: record.fallbackReason,
     fromDate: record.fromDate,
     source: record.source,
     toDate: record.toDate,
   });
+  const outcomes = array(record.actionOutcomes);
+  if (!outcomes.length) return receipt;
+  const lines = [
+    "[ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN]",
+    "Only entries marked VERIFIED have a positive post-write state check. UNVERIFIED orders remain attempted; do not treat their intended effects as facts.",
+    ...outcomes.map((outcome) => outcome?.status === "verified"
+      ? `- VERIFIED — ${clip(outcome.title, 100)}: ${clip(outcome.verification?.postcondition, 180)} (source: ${clip(outcome.verification?.source, 80)}).`
+      : `- UNVERIFIED — ${clip(outcome?.title || "Untitled order", 100)}: no positive postcondition was established.`),
+  ];
+  return [receipt, lines.join("\n")].filter(Boolean).join("\n\n");
 };
