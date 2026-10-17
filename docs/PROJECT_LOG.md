@@ -1,3 +1,11 @@
+## 2026-10-17 — Keep planned-order counting consistent
+
+- The turn planner now uses the shared `selectPlannedActions()` helper when counting queued orders for event-slot budgeting, matching the fallback simulator's selection rule. This avoids two separate definitions of which ledger entries count as pending.
+- Code change: [commit 47110de](https://github.com/wizzadrds/open-historias-pruebas/commit/47110de67a940bfc44a657aad0a7cd136f324aa1).
+- This is a consistency refactor, not proof that an order succeeds. Individual action-to-event attribution, persisted effect verification, and an observe → decide → act → verify → adapt loop remain open work.
+
+---
+
 ## 2026-10-16 — Share and test queued-order selection
 
 - Extracted `selectPlannedActions` into `src/Game/AI/actionResolution.js` and used it in the fallback turn simulator, so only actions still marked `planned` are eligible to produce fallback events. Added a focused test that resolved and rejected history is excluded and the original ledger is unchanged.
