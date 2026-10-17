@@ -298,3 +298,11 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Remaining critical work: (1) define and preserve order IDs through event/operation generation; (2) verify actual world-state postconditions after canonical world persistence/reload, beyond chat creation; (3) add deterministic integration tests for success, partial, blocked, invalid and conflicting orders; (4) build the opt-in autonomous observe → decide → execute → verify → adapt loop; (5) add end-to-end acceptance coverage proving the next decision changes based on verified outcomes.
 - Progress estimate for the **autonomous-agent objective described in `docs/AUTONOMOUS_AGENT_PLAN.md`**, not for the whole Open Historia game: roughly 35–45% complete. The engineering guardrails and one narrow verifiable action type are implemented; general causal order verification and the autonomous decision loop are still the majority of the feature. This is a planning estimate, not a measured code-completion metric.
 - PR #1 remains open and draft; do not merge it until the remaining feature scope is agreed and reviewed.
+
+## Keep the autonomous-agent roadmap aligned with current code — 2026-10-17
+
+- Corrected `docs/AUTONOMOUS_AGENT_PLAN.md` to reflect the implementation now present: canonical pre-write/post-write chat verification for the fallback diplomatic-chat path, stable new-thread ID requirements, uniqueness safeguards, persisted verified/unverified outcomes with reasons, and next-turn receipt integration.
+- Clarified that these guarantees remain narrow and do not cover territory, military, policy, project, or general free-text orders; the autonomous decision loop and end-to-end acceptance scenario remain incomplete.
+- Documentation update commit: `ad88c61e8be1f57b6457e21ac454ce2185a33693`.
+- CI run [39040994005](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39040994005) was triggered for this exact PR head and was still in progress when checked. Do not mark the latest head green until both `verify` and `lint` complete successfully.
+- This was a documentation accuracy fix only; autonomous-agent progress remains estimated at 40%. The next implementation milestone is still order-ID attribution plus one deterministic non-chat postcondition verified against canonical persisted world state.
