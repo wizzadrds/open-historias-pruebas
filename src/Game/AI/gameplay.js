@@ -7248,7 +7248,7 @@ const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
   // The fallback cannot translate arbitrary prose into verified world impacts.
   // Only concrete chat orders have an effect it can actually apply (a persisted
   // chat with named participants and a non-empty opening message).
-  const firstThreeActions = selectFallbackChatActions(plannedActions).slice(0, 3);
+  const firstThreeActions = selectFallbackChatActions(plannedActions, 3);
   const events = [];
 
   // Ancient/FMG scenarios may use textual or BCE dates. Only perform calendar
@@ -8492,7 +8492,7 @@ const applySimulationResult = async ({
     const persistedChats = await readChatsState({ force: true }).catch(() => null);
     if (Array.isArray(persistedChats)) {
       verifiedActionOutcomes = verifyPersistedChatOutcomes(
-        selectFallbackChatActions(plannedActionSnapshot),
+        selectFallbackChatActions(plannedActionSnapshot, 3),
         baseChats,
         persistedChats,
         `round-${nextGame.round}-post-write`,
