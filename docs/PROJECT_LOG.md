@@ -1,3 +1,13 @@
+## 2026-10-17 — Validate persisted order outcomes and end-to-end turn flow
+
+- Exact branch head `7181b3168bfa776998fe89a43ad84d491ed761ea` passed workflow run [39045607176](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39045607176): regression tests, desktop/local build, browser build, Chromium browser E2E, screenshot artifact upload, Android client bundle build, and ESLint all completed successfully.
+- The Chromium smoke test now covers creating a game, reloading it, queuing a manual order, advancing one simulation day, and asserting the advanced date survives another reload. It deliberately does not treat queuing free-text as proof of a world effect.
+- The action-outcome integration path now links candidate outcomes to an originating action/event, reads canonical world state after persistence, and resolves a territorial order only when its expected owner change is observed. Regression tests cover missing linkage, no-op/wrong effects, ambiguous transfers, and normalization/reload of the outcome ledger.
+- Verification boundary: green CI proves the configured deterministic tests/builds/browser flow, not that arbitrary free-text orders produce their intended consequences or that every provider-backed AI path works.
+- Next: trace whether verified/unverified outcome records are actually consumed by the next AI decision (rather than merely stored in history); add a deterministic test for the feedback path before expanding more behavior. PR #1 remains open, draft, and unmerged.
+
+---
+
 ## 2026-10-17 — Remove invented fallback consequences for free-text orders
 
 - In `src/Game/AI/gameplay.js`, fallback turns no longer turn arbitrary free-text order titles into events claiming immediate administrative or political consequences. The fallback only creates an action event for a chat order with named participants and a non-empty opening message, an effect the engine can actually persist.
