@@ -395,3 +395,28 @@ test("multiple canonical transfers in one linked event are not attributed to a s
     "without an explicit expectedEffect, multiple transfers are ambiguous evidence",
   );
 });
+
+
+test("an explicit expected effect disambiguates a multi-transfer linked event", () => {
+  const actions = [{
+    id: "declared-transfer",
+    status: "attempted",
+    expectedEffect: { type: "region-owner", regionId: "north", owner: "B" },
+  }];
+  const beforeWorld = { regionOwnershipOverrides: { north: "A", south: "A" } };
+  const afterWorld = { regionOwnershipOverrides: { north: "B", south: "C" } };
+  const events = [{
+    actionIds: ["declared-transfer"],
+    impacts: { regionTransfers: [
+      { regionId: "north", fromCode: "A", toCode: "B" },
+      { regionId: "south", fromCode: "A", toCode: "C" },
+    ] },
+  }];
+
+  const outcomes = verifyPersistedWorldOutcomes(
+    actions, beforeWorld, afterWorld, "round-11-post-write", events,
+  );
+  assert.equal(outcomes["declared-transfer"]?.verified, true);
+  assert.equal(outcomes["declared-transfer"]?.postcondition,
+    "Persisted region north changed owner to B.");
+});
