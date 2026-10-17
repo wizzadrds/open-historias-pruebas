@@ -333,3 +333,9 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Latest known CI for code head `724a7ddb4ddb061ebf1df0b8092ea53336794d8d` completed successfully (run [39058103239](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39058103239)); it passed after a retry, so the intermittent Chromium date-advance timeout remains a reliability risk rather than a fixed defect.
 - No application code changed in this investigation. The next meaningful code milestone is the plan's deterministic observation/decision adapter and a seam-level test proving the selected next action changes appropriately under controlled verified vs unverified outcomes, followed by stable order-ID attribution through the turn pipeline. Avoid counting prompt-string assertions alone as proof of autonomous decision adaptation.
 - Autonomous-agent progress remains **55%** as a planning estimate; this investigation confirms existing feedback wiring but does not implement the missing decision loop.
+
+## Refresh exact-head validation evidence — 2026-10-17
+
+- Workflow run [39062310696](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39062310696) completed successfully for commit `c09b6b8fbe3d63dcb59af967e599a295efd49f34`: both `verify` and `lint` passed, including regression tests, desktop/browser builds, Chromium smoke, and Android bundle build.
+- Updated `docs/AUTONOMOUS_AGENT_PLAN.md` to replace stale CI wording and record that this exact-head green run validates the configured checks but was documentation-only, not autonomous-agent implementation.
+- The current commit changes project documentation only. Autonomous-agent progress remains **55%** as a planning estimate; no percentage increase is warranted until the deterministic observation/decision seam and tests are implemented.
