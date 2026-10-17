@@ -14190,7 +14190,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
   });
   // Guarantee at least one event per queued action, so each planned action has a
   // slot to resolve into (bounded so a huge queue can't demand absurd counts).
-  const plannedActionCount = normalizeActions(bundle.actions).filter((action) => action.status === "planned").length;
+  const plannedActionCount = selectPlannedActions(normalizeActions(bundle.actions)).length;
 
   // Long skips are generated in SEGMENTS and merged into the one round the player
   // asked for — see jumpSegments.js for why, and for the merge rules. Auto jumps
