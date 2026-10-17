@@ -254,3 +254,11 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Corrected accent normalization in the participant/message comparison.
 - CI for the receipt-rendering changes is pending at [workflow run 39031770529](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39031770529). The full end-to-end change is not considered validated until this run completes.
 - Scope remains deliberately narrow: only concrete fallback diplomatic-chat effects have a positive postcondition verifier. Other order types are honestly reported as unverified, not inferred successful.
+
+### Action evidence survives normalization; fallback verifier respects execution limit — 2026-10-17
+
+- Preserved complete `verification` metadata when normalizing an individual queued action, while dropping incomplete evidence objects. Added a regression test for both paths.
+- Found a causal attribution edge case: fallback simulation applies at most three concrete diplomatic chat orders, but the post-write verifier previously examined every eligible chat order. An unrelated matching persisted thread could therefore incorrectly verify an order that the fallback had not actually applied.
+- Made the fallback chat selector accept an explicit limit and use the same limit both when generating fallback effects and when verifying persisted outcomes. Added tests for bounded and zero-result selection.
+- CI for the latest changes: [workflow run 39035817036](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39035817036). Treat as pending until it completes.
+- Remaining scope: positive verification still applies only to concrete fallback diplomatic chats. Other order types stay unverified until each has a reliable, order-specific canonical postcondition.
