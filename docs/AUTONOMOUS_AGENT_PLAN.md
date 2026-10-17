@@ -30,7 +30,7 @@ The loop must be grounded in authoritative game state. A generated event or a su
 - Added a repository-specific GitHub Actions workflow and quality-gate documentation so this working copy receives tests, builds, lint, and a Chromium browser smoke run.
 - Added/expanded `scripts/browser-smoke.mjs`. The journey enters the app, navigates the demo/consent screens, creates a Medium scenario game, checks that the active game ID is stored in IndexedDB, reloads the app, queues a manual order, advances the simulation date, checks date persistence, and records browser errors/screenshots.
 - The browser journey is useful UI/persistence coverage, but it is not an end-to-end proof that the order caused a particular world change or that an autonomous agent is operating.
-- The most recent observed workflow run at the time this document was written is [39026240957](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39026240957), on `d79122e`. `lint` passed; `verify` failed at **Launch the web build in Chromium**. Do not describe the current branch as fully green.
+- The latest fully inspected code-validation run before the documentation-only progress updates is [39038420188](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39038420188), on code head `47c5ea6e6e739ea1dc4fe32e73af3e964859c879`. Both `lint` and `verify` passed, including regression tests, desktop/browser builds, Chromium smoke, and Android bundle build. The subsequent commits update project documentation only; a fresh workflow run for the latest documentation commit has not yet been confirmed.
 
 ### Order selection and resolution helpers
 
@@ -63,6 +63,14 @@ This test proves that a supported event impact can change the returned world sna
 - The action ledger is currently resolved using the result's `clearActions` flag, rather than a verified outcome attached to each order.
 
 These are architecture findings, not proof that a specific order reliably produces a specific result in all runtime modes.
+
+## Progress estimate (2026-10-17)
+
+For the autonomous-player objective in this document (not the whole Open Historia game), estimate **35–45% implemented**. This is a planning judgment, not a code-coverage metric.
+
+- Done in the current slice: conservative attempted/resolved lifecycle; evidence-gated promotion helper; one persisted postcondition verifier for newly created diplomatic chat threads; verified/unverified outcomes passed into the next-turn receipt; regression and browser smoke coverage; latest inspected code CI run green.
+- Not done: general order-to-event causal identity, post-write verification for territory/military/policy/project operations, broad deterministic integration coverage, autonomous goal/order generation, adaptation to verified outcomes, and an end-to-end autonomous acceptance scenario.
+- Next implementation target: select one supported non-chat operation with a deterministic canonical postcondition; preserve the originating order ID through execution; re-read canonical persisted world state; test positive, negative, ambiguous and reload cases before extending the pattern to other operations.
 
 ## What remains to implement
 
