@@ -207,3 +207,23 @@ This file is the durable record of work performed in this working repository. Ne
 2. Confirm the latest GitHub Actions run, fix failures without weakening assertions, and inspect the saved browser screenshot.
 3. Expand browser automation from boot smoke coverage into stable user journeys: open library, start/select a game, advance a turn where testable, and verify save/load.
 4. Create a concise product acceptance checklist for the first requested gameplay changes before implementing them.
+
+
+## Gameplay-agent evidence loop — 2026-10-17
+
+### Changes made
+
+- `src/Game/AI/actionResolution.js` now marks queued orders as `attempted` when a turn clears the queue; a turn-level flag is not proof that each order's intended effect happened.
+- The fallback simulation only turns concrete chat orders (participants plus non-empty opening message) into chat effects. Arbitrary free-text orders are not represented as if they changed diplomacy, administration, or the world.
+- Fallback descriptions now state only the persisted chat effect and explicitly avoid inferring other consequences.
+- Added regression coverage for attempted-vs-resolved statuses, excluding completed/rejected/attempted orders from replay, and selecting only concrete fallback chat orders.
+
+### Verification and current limitation
+
+- GitHub Actions run [39028139014](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39028139014) failed: the new fallback selector test referenced `selectFallbackChatActions` without importing it, causing one regression-test failure and one lint error. The missing test import was fixed in commit [88263c1](https://github.com/wizzadrds/open-historias-pruebas/commit/88263c1a131e5482e16614febf31e3f484ebcaa0).
+- Verification for commit `88263c1` is running in [GitHub Actions](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39028720518); do not treat it as passing until it completes.
+- Important remaining gap: orders are now not falsely called successful, but the engine still needs an explicit per-order expected postcondition and evidence from canonical state after persistence. Until that exists, the status `attempted` is intentionally conservative, and the agent must not infer success from narration alone.
+
+### Next implementation target
+
+Implement an evidence contract for supported order types: stable order ID, declared expected effect, the canonical state fields that can prove/disprove it, and a post-write re-read. Only a passing check may promote an order to `resolved`; unsupported orders should remain `attempted` with an explicit unverified outcome. Add an integration test that demonstrates the next agent decision receives the verified result rather than only the previous generated prose.
