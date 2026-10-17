@@ -325,3 +325,11 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Exact-head CI passed on `b3d358d6346148fd86a00a9ee652f24ec680832a`: workflow run [39049823813](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39049823813), both `verify` and `lint` successful.
 - This proves the smoke journey can proceed without configuring a provider key; it does not prove AI generation works without a key. Provider-unconfigured behavior still needs an explicit product-level test and a clear user-facing failure/continue path.
 - Autonomous-agent progress remains **55%** as a planning estimate: this reliability fix validates the existing smoke journey but does not implement the missing observe → decide → execute → verify → adapt loop.
+
+## Verify next-turn outcome feedback wiring — 2026-10-17
+
+- Traced the production path: `renderLastTurnReceipt(normalizeWorldState(bundle.world).simulationHistory)` builds feedback from the newest jump, and `gameplay.js` prepends it to the user message on every generated segment. This means verified/unverified outcomes are not merely stored; the next model request receives the ledger.
+- Reviewed `src/runtime/applicationReceipt.test.js`: coverage already checks outcome-only jumps, ignores older receipts, distinguishes verified/unverified entries, and asserts the instruction to inspect current state before retrying. Do not duplicate these tests as if they were missing.
+- Latest known CI for code head `724a7ddb4ddb061ebf1df0b8092ea53336794d8d` completed successfully (run [39058103239](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39058103239)); it passed after a retry, so the intermittent Chromium date-advance timeout remains a reliability risk rather than a fixed defect.
+- No application code changed in this investigation. The next meaningful code milestone is the plan's deterministic observation/decision adapter and a seam-level test proving the selected next action changes appropriately under controlled verified vs unverified outcomes, followed by stable order-ID attribution through the turn pipeline. Avoid counting prompt-string assertions alone as proof of autonomous decision adaptation.
+- Autonomous-agent progress remains **55%** as a planning estimate; this investigation confirms existing feedback wiring but does not implement the missing decision loop.
