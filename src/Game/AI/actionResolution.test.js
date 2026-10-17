@@ -397,6 +397,28 @@ test("multiple canonical transfers in one linked event are not attributed to a s
 });
 
 
+test("an explicit expected effect must be confirmed by its linked event", () => {
+  const action = {
+    id: "declared-but-unlinked-effect",
+    status: "attempted",
+    expectedEffect: { type: "region-owner", regionId: "north", owner: "B" },
+  };
+  const beforeWorld = { regionOwnershipOverrides: { north: "A" } };
+  const afterWorld = { regionOwnershipOverrides: { north: "B" } };
+  const events = [{
+    actionIds: ["declared-but-unlinked-effect"],
+    impacts: { regionTransfers: [{ regionId: "south", fromCode: "A", toCode: "C" }] },
+  }];
+
+  assert.deepEqual(
+    verifyPersistedWorldOutcomes(
+      [action], beforeWorld, afterWorld, "round-11-post-write", events,
+    ),
+    {},
+    "a world diff plus an unrelated linked event must not prove the declared effect",
+  );
+});
+
 test("an explicit expected effect disambiguates a multi-transfer linked event", () => {
   const actions = [{
     id: "declared-transfer",
