@@ -32,3 +32,35 @@ export const selectFallbackChatActions = (actions) => actions.filter((action) =>
   && typeof action.chatStarter === "string"
   && action.chatStarter.trim().length > 0
 );
+
+/**
+ * Promote an attempted order only when the engine supplies a positive,
+ * order-specific postcondition check. Missing, malformed, or negative evidence
+ * must leave the order attempted; a generated summary is not evidence.
+ *
+ * outcomes is keyed by stable action ID and contains:
+ * { verified: true, postcondition: string, source: string, observedAt: string }
+ */
+export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.map((action) => {
+  if (action.status !== "attempted" || !action.id) return action;
+  const outcome = outcomes[action.id];
+  if (
+    outcome?.verified !== true
+    || typeof outcome.postcondition !== "string"
+    || !outcome.postcondition.trim()
+    || typeof outcome.source !== "string"
+    || !outcome.source.trim()
+    || typeof outcome.observedAt !== "string"
+    || !outcome.observedAt.trim()
+  ) return action;
+
+  return {
+    ...action,
+    status: "resolved",
+    verification: {
+      postcondition: outcome.postcondition.trim(),
+      source: outcome.source.trim(),
+      observedAt: outcome.observedAt.trim(),
+    },
+  };
+});
