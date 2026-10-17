@@ -1,7 +1,7 @@
 /*! Open Historia — action resolution tests © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolvePlannedActions, selectPlannedActions } from "./actionResolution.js";
+import { resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
 
 test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
