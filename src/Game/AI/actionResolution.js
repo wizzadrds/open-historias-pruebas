@@ -95,12 +95,17 @@ export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, o
     const linkedEvents = Array.isArray(events) ? events.filter((event) =>
       Array.isArray(event?.actionIds) && event.actionIds.map(String).includes(String(action?.id))) : [];
     const declaredEffect = action?.expectedEffect;
-    const eventTransfers = linkedEvents.flatMap((event) =>
-      (Array.isArray(event?.regionTransfers) ? event.regionTransfers : [])
+    const eventTransfers = linkedEvents.flatMap((event) => {
+      // Canonical events store mechanical consequences under impacts; accept
+      // the legacy flat shape too for older saves and direct callers.
+      const transfers = Array.isArray(event?.impacts?.regionTransfers)
+        ? event.impacts.regionTransfers
+        : Array.isArray(event?.regionTransfers) ? event.regionTransfers : [];
+      return transfers
         .filter((transfer) => typeof transfer?.regionId === "string" && transfer.regionId.trim()
           && typeof transfer?.toCode === "string" && transfer.toCode.trim())
-        .map((transfer) => ({ type: "region-owner", regionId: transfer.regionId.trim(), owner: transfer.toCode.trim() })),
-    );
+        .map((transfer) => ({ type: "region-owner", regionId: transfer.regionId.trim(), owner: transfer.toCode.trim() }));
+    });
     const distinctTransfers = [...new Map(eventTransfers.map((effect) =>
       [`${effect.regionId.toLowerCase()}::${normalizeEvidenceText(effect.owner)}`, effect])).values()];
     // Prefer an explicit order contract. If none was provided, a uniquely
