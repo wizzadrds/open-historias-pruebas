@@ -48,6 +48,11 @@ test("fallback only turns concrete chat orders into world events", () => {
     { id: "concrete-chat", kind: "chat", title: "Negotiate", invitees: ["Rival"], chatStarter: "Let us discuss terms." },
   ];
   assert.deepEqual(selectFallbackChatActions(actions).map(({ id }) => id), ["concrete-chat"]);
+  const many = Array.from({ length: 5 }, (_, index) => ({
+    id: `chat-${index}`, kind: "chat", invitees: ["Rival"], chatStarter: `Message ${index}`,
+  }));
+  assert.deepEqual(selectFallbackChatActions(many, 3).map(({ id }) => id), ["chat-0", "chat-1", "chat-2"]);
+  assert.deepEqual(selectFallbackChatActions(many, 0), []);
 });
 
 test("attempted orders are not replayed as pending orders", () => {
