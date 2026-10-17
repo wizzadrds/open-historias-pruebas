@@ -225,3 +225,24 @@ test("persisted world verification rejects missing snapshots, malformed effects,
   assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, { regionOwnershipOverrides: [] }, "round-8-post-write"), {});
 });
 
+test("persisted world verification derives a single region transfer from its linked event", () => {
+  const actions = [
+    { id: "linked-transfer", status: "attempted", title: "Resolve border dispute" },
+    { id: "unlinked-transfer", status: "attempted", title: "Narrated transfer" },
+    { id: "ambiguous-transfer", status: "attempted", title: "Several transfers" },
+  ];
+  const before = { regionOwnershipOverrides: { "r-10": "Old Union", "r-11": "Old Union", "r-12": "Old Union" } };
+  const after = { regionOwnershipOverrides: { "r-10": "New Republic", "r-11": "New Republic", "r-12": "New Republic" } };
+  const events = [
+    { actionIds: ["linked-transfer"], regionTransfers: [{ regionId: "r-10", toCode: "New Republic" }] },
+    { actionIds: ["someone-else"], regionTransfers: [{ regionId: "r-11", toCode: "New Republic" }] },
+    { actionIds: ["ambiguous-transfer"], regionTransfers: [
+      { regionId: "r-12", toCode: "New Republic" },
+      { regionId: "r-13", toCode: "New Republic" },
+    ] },
+  ];
+
+  const outcomes = verifyPersistedWorldOutcomes(actions, before, after, "round-9-post-write", events);
+  assert.deepEqual(Object.keys(outcomes), ["linked-transfer"]);
+  assert.equal(outcomes["linked-transfer"].verified, true);
+});
