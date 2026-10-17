@@ -227,3 +227,11 @@ This file is the durable record of work performed in this working repository. Ne
 ### Next implementation target
 
 Implement an evidence contract for supported order types: stable order ID, declared expected effect, the canonical state fields that can prove/disprove it, and a post-write re-read. Only a passing check may promote an order to `resolved`; unsupported orders should remain `attempted` with an explicit unverified outcome. Add an integration test that demonstrates the next agent decision receives the verified result rather than only the previous generated prose.
+
+
+### Evidence-gated order status helper — 2026-10-17
+
+- Added `applyVerifiedActionOutcomes` in `src/Game/AI/actionResolution.js`: an attempted order can become `resolved` only with a positive outcome keyed by stable action ID and containing a non-empty postcondition, evidence source, and observation marker. Missing/negative/incomplete evidence leaves it `attempted`.
+- Added tests for positive evidence, negative evidence, missing evidence, stable IDs, narration-only summaries, planned-order preservation, and immutable input.
+- This is a deliberately small enforcement primitive, **not yet wired to the turn persistence path**. The next code change must create evidence from a fresh post-write read of canonical data, pass those outcomes through this helper, and make the verified ledger available to the next decision prompt. Until that integration and its test exist, no end-to-end per-order verification is claimed.
+- The full workflow passed on commit `4daca2950c6886d9e3f393d912855345d39e2f8a`: [CI run 39028748321](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39028748321) — regression tests, desktop build, browser build/smoke, Android bundle build, and lint all succeeded. The new helper and tests above are newer than that passing commit and await their own CI run.
