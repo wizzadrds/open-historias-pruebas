@@ -143,3 +143,14 @@ test("persisted chat verification rejects pre-existing effects and missing snaps
   assert.deepEqual(verifyPersistedChatOutcomes([action], chats, chats, "round-4"), {});
   assert.deepEqual(verifyPersistedChatOutcomes([action], null, chats, "round-4"), {});
 });
+
+test("one persisted chat cannot verify duplicate orders twice", () => {
+  const actions = [
+    { id: "first", invitees: ["Rival"], chatStarter: "Let us discuss terms." },
+    { id: "duplicate", invitees: ["Rival"], chatStarter: "Let us discuss terms." },
+  ];
+  const before = [];
+  const after = [{ id: "new", countries: [{ name: "Rival" }], messages: [{ text: "Let us discuss terms." }] }];
+  const outcomes = verifyPersistedChatOutcomes(actions, before, after, "round-5-post-write");
+  assert.deepEqual(Object.keys(outcomes), ["first"]);
+});
