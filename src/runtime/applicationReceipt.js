@@ -219,7 +219,7 @@ export const selectLastJumpRecord = (simulationHistory) => {
   for (const entry of array(simulationHistory)) {
     if (!entry || typeof entry !== "object") continue;
     if (!JUMP_MODES.has(clean(entry.mode).toLowerCase())) continue;
-    return entry.receipt || clean(entry.source) === "fallback" ? entry : null;
+    return entry.receipt || clean(entry.source) === "fallback" || array(entry.actionOutcomes).length > 0 ? entry : null;
   }
   return null;
 };
@@ -294,10 +294,21 @@ export const renderApplicationReceipt = (receipt, {
 export const renderLastTurnReceipt = (simulationHistory) => {
   const record = selectLastJumpRecord(simulationHistory);
   if (!record) return "";
-  return renderApplicationReceipt(record.receipt, {
+  const receipt = renderApplicationReceipt(record.receipt, {
     fallbackReason: record.fallbackReason,
     fromDate: record.fromDate,
     source: record.source,
     toDate: record.toDate,
   });
+  const outcomes = array(record.actionOutcomes);
+  if (!outcomes.length) return receipt;
+  const lines = [
+    "[ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN]",
+    "Only entries marked VERIFIED have a positive post-write state check. UNVERIFIED orders remain attempted; do not treat their intended effects as facts.",
+    "Adapt the next decision to this evidence: do not repeat a VERIFIED effect unless the current state shows it was lost. For an UNVERIFIED order, inspect the current map and records first; if the effect is still needed, choose a safer or more concrete retry, and never assume it succeeded.",
+    ...outcomes.map((outcome) => outcome?.status === "verified"
+      ? `- VERIFIED — ${clip(outcome.title, 100)}: ${clip(outcome.verification?.postcondition, 180)} (source: ${clip(outcome.verification?.source, 80)}). Next step: compare the current state with this postcondition; do not queue the same effect again unless the state shows it was lost.`
+      : `- UNVERIFIED — ${clip(outcome?.title || "Untitled order", 100)}: ${clip(outcome?.reason || "no positive postcondition was established", 180)}. Next step: inspect the current map and records before deciding whether a concrete retry is still needed.`),
+  ];
+  return [receipt, lines.join("\n")].filter(Boolean).join("\n\n");
 };

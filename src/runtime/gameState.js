@@ -428,6 +428,28 @@ export const normalizeActionEntry = (entry, index = 0) => {
       : "action";
 
   const unitRevert = normalizeUnitRevert(entry.unitRevert);
+  const rawVerification = entry.verification && typeof entry.verification === "object"
+    ? {
+      postcondition: normalizeOptionalString(entry.verification.postcondition),
+      source: normalizeOptionalString(entry.verification.source),
+      observedAt: normalizeOptionalString(entry.verification.observedAt),
+    }
+    : null;
+  const verification = rawVerification?.postcondition && rawVerification?.source && rawVerification?.observedAt
+    ? rawVerification
+    : null;
+  const rawExpectedEffect = entry.expectedEffect && typeof entry.expectedEffect === "object"
+    ? entry.expectedEffect
+    : null;
+  const expectedEffect = rawExpectedEffect?.type === "region-owner"
+    && normalizeOptionalString(rawExpectedEffect.regionId)
+    && normalizeOptionalString(rawExpectedEffect.owner)
+    ? {
+      type: "region-owner",
+      regionId: normalizeOptionalString(rawExpectedEffect.regionId),
+      owner: normalizeOptionalString(rawExpectedEffect.owner),
+    }
+    : null;
 
   return {
     chatStarter: normalizeOptionalString(entry.chatStarter || entry.openingMessage),
@@ -443,6 +465,8 @@ export const normalizeActionEntry = (entry, index = 0) => {
     text: text || rawInput || title,
     title: title || rawInput || text,
     ...(unitRevert ? { unitRevert } : {}),
+    ...(expectedEffect ? { expectedEffect } : {}),
+    ...(verification ? { verification } : {}),
   };
 };
 
@@ -3494,6 +3518,36 @@ const withFormerSceneKeyMoved = (world) => {
   return { ...rest, activeInteractive: rest.activeInteractive ?? formerScene };
 };
 
+const normalizeActionOutcomes = (value) => normalizeArray(value)
+  .slice(0, 80)
+  .map((entry) => {
+    if (!entry || typeof entry !== "object") return null;
+    const id = normalizeOptionalString(entry.id);
+    const title = normalizeOptionalString(entry.title);
+    const status = ["verified", "unverified"].includes(entry.status) ? entry.status : "";
+    if (!id || !status) return null;
+    const verification = entry.verification && typeof entry.verification === "object"
+      ? {
+        postcondition: normalizeOptionalString(entry.verification.postcondition),
+        source: normalizeOptionalString(entry.verification.source),
+        observedAt: normalizeOptionalString(entry.verification.observedAt),
+      }
+      : null;
+    const completeVerification = verification?.postcondition && verification?.source && verification?.observedAt
+      ? verification
+      : null;
+    return {
+      id,
+      ...(title ? { title } : {}),
+      status: status === "verified" && completeVerification ? "verified" : "unverified",
+      ...(status === "verified" && completeVerification ? { verification: completeVerification } : {}),
+      ...(normalizeOptionalString(entry.reason) && status !== "verified"
+        ? { reason: normalizeOptionalString(entry.reason) }
+        : {}),
+    };
+  })
+  .filter(Boolean);
+
 export const normalizeWorldState = (world) => {
   const nextWorld = withFormerSceneKeyMoved(world && typeof world === "object" ? world : {});
   const polityOverrides = Object.fromEntries(
@@ -3682,6 +3736,7 @@ export const normalizeWorldState = (world) => {
           fromDate: normalizeOptionalString(entry.fromDate || entry.startDate),
           mode: normalizeRenamedKind(entry.mode),
           plannedActions: normalizeActions(entry.plannedActions || entry.actions),
+          actionOutcomes: normalizeActionOutcomes(entry.actionOutcomes),
           // The raw model response a fallback turn failed to parse — empty on a
           // normal AI turn. See gameplay.js's runJsonTask/applySimulationResult.
           rawResponse: normalizeOptionalString(entry.rawResponse),

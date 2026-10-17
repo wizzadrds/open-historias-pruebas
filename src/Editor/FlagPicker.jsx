@@ -207,12 +207,10 @@ const FlagPicker = ({ open, onClose, ownerCode, currentFlag, mapFlags = {}, auth
 
   useEffect(() => {
     if (open) refreshMine();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
     if (open && tab === "community" && !communityLoaded) loadCommunity();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tab, communityLoaded]);
 
   if (!open) return null;

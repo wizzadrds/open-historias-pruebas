@@ -8,6 +8,11 @@ New to the codebase? Read **[Architecture Overview](architecture.md)** first —
 
 > **Editing AI prompts?** The **[Prompt-Making Guide](ai-prompts.md)** is the canonical reference — every placeholder/variable, all 13 tasks plus the advisor/leader roots, end-to-end prompt assembly, the override/frozen-prompt model, and recipes for adding a variable or a task. Start there before touching any prompt text.
 
+### Working on this repository
+- [Working Agreement](WORKING_AGREEMENT.md) — Inspect-first workflow, acceptance criteria, repository safety, and definition of done.
+- [Quality Gates & Self-Verification](QUALITY_GATES.md) — Test/lint/build matrix and runtime checks for product behavior.
+- [Project Log](PROJECT_LOG.md) — Persistent record of architecture findings, changes, test evidence, known gaps, and next steps.
+
 ## Contents
 
 ### Getting Started
