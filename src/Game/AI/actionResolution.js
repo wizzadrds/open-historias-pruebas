@@ -67,7 +67,7 @@ export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.m
 
 
 const normalizeEvidenceText = (value) => typeof value === "string"
-  ? value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").trim().toLowerCase()
+  ? value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase()
   : "";
 
 const participantNames = (chat) => (Array.isArray(chat?.countries) ? chat.countries : [])
