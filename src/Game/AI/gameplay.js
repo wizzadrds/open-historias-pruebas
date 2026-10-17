@@ -8488,9 +8488,12 @@ const applySimulationResult = async ({
   // file written by this turn. Compare against the pre-turn snapshot so an old
   // thread or generated narration alone cannot count as a new effect.
   let verifiedActionOutcomes = {};
+  let persistedChatStateAvailable = false;
+  const fallbackVerifiableActionIds = new Set(selectFallbackChatActions(plannedActionSnapshot, 3).map((action) => action.id));
   if (result.clearActions) {
     const persistedChats = await readChatsState({ force: true }).catch(() => null);
     if (Array.isArray(persistedChats)) {
+      persistedChatStateAvailable = true;
       verifiedActionOutcomes = verifyPersistedChatOutcomes(
         selectFallbackChatActions(plannedActionSnapshot, 3),
         baseChats,
@@ -8513,6 +8516,13 @@ const applySimulationResult = async ({
         id: normalizeString(action.id),
         title: normalizeString(action.title) || normalizeString(action.kind) || "Untitled order",
         status: verification ? "verified" : "unverified",
+        ...(!verification ? {
+          reason: !fallbackVerifiableActionIds.has(action.id)
+            ? "No fallback postcondition verifier ran for this order."
+            : !persistedChatStateAvailable
+              ? "Canonical chat state could not be read after persistence."
+              : "No unique new persisted chat matched the requested participants and opening message.",
+        } : {}),
         ...(verification ? { verification } : {}),
       };
     });
