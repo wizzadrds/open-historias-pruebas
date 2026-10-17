@@ -235,3 +235,12 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Added tests for positive evidence, negative evidence, missing evidence, stable IDs, narration-only summaries, planned-order preservation, and immutable input.
 - This is a deliberately small enforcement primitive, **not yet wired to the turn persistence path**. The next code change must create evidence from a fresh post-write read of canonical data, pass those outcomes through this helper, and make the verified ledger available to the next decision prompt. Until that integration and its test exist, no end-to-end per-order verification is claimed.
 - The full workflow passed on commit `4daca2950c6886d9e3f393d912855345d39e2f8a`: [CI run 39028748321](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39028748321) — regression tests, desktop build, browser build/smoke, Android bundle build, and lint all succeeded. The new helper and tests above are newer than that passing commit and await their own CI run.
+
+
+### Post-write verification for fallback diplomatic orders — 2026-10-17
+
+- Added `verifyPersistedChatOutcomes` to compare requested participants and exact opening text against a fresh canonical chat read after `writeChatsState`; evidence is rejected if the same effect already existed in the pre-turn snapshot, the canonical snapshots are unavailable, or multiple threads make the match ambiguous.
+- Wired the check into the turn persistence path for concrete fallback chat orders. Only attempted orders with a unique positive match are promoted through `applyVerifiedActionOutcomes`; other orders remain attempted.
+- Added regression tests for exact matches, missing effects, pre-existing effects, and ambiguous matches.
+- CI for the new integration is running on commit `ea759c468f69934a7b98c28dcd2318def3e8b048`: [workflow run 39030772103](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39030772103). Do not treat it as passing until it completes.
+- Remaining limitation: this verification currently covers the fallback engine's concrete diplomatic-chat postcondition only. It does not yet prove territorial, military, policy, or other free-text order effects, and the verified ledger still needs explicit presentation in the next decision prompt.
