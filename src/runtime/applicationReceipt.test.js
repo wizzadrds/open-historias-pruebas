@@ -294,3 +294,28 @@ test("a short note survives the save: it is a kind the normalizer knows", () => 
   const stored = normalizeApplicationReceipt({ applied: { events: 1 }, notes: [{ kind: "short", text: "You wrote 1 event." }, { kind: "gossip", text: "ignored" }] });
   assert.deepEqual(stored.notes, [{ kind: "short", text: "You wrote 1 event." }]);
 });
+
+
+test("the next jump receives verified and unverified order outcomes as a separate ledger", () => {
+  const block = renderLastTurnReceipt([{
+    mode: "jump",
+    source: "ai",
+    receipt: { applied: { events: 1 }, notes: [] },
+    actionOutcomes: [
+      {
+        id: "chat-1",
+        title: "Open talks with Rival",
+        status: "verified",
+        verification: {
+          postcondition: "Persisted thread contains requested participants and opening message.",
+          source: "canonical-chat-state-after-write",
+        },
+      },
+      { id: "order-2", title: "Move the army", status: "unverified" },
+    ],
+  }]);
+  assert.match(block, /ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN/);
+  assert.match(block, /VERIFIED — Open talks with Rival: Persisted thread contains requested participants/);
+  assert.match(block, /UNVERIFIED — Move the army: no positive postcondition was established/);
+  assert.match(block, /UNVERIFIED orders remain attempted/);
+});
