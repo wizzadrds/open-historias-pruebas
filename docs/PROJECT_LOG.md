@@ -316,3 +316,12 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Documentation update commit: `ad88c61e8be1f57b6457e21ac454ce2185a33693`.
 - CI run [39040994005](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39040994005) was triggered for this exact PR head and was still in progress when checked. Do not mark the latest head green until both `verify` and `lint` complete successfully.
 - This was a documentation accuracy fix only; autonomous-agent progress remains estimated at 40%. The next implementation milestone is still order-ID attribution plus one deterministic non-chat postcondition verified against canonical persisted world state.
+
+
+## Provider setup no longer blocks browser smoke — 2026-10-17
+
+- Diagnosed the failing Chromium smoke: a fresh browser profile has no AI provider configured, and the optional “Set up your AI provider” dialog covered the gameplay controls after game creation/reload.
+- Updated `scripts/browser-smoke.mjs` to dismiss the optional dialog with “Not now” when present, then continue asserting persisted game identity, gameplay controls, queued order, turn advancement, and date persistence.
+- Exact-head CI passed on `b3d358d6346148fd86a00a9ee652f24ec680832a`: workflow run [39049823813](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39049823813), both `verify` and `lint` successful.
+- This proves the smoke journey can proceed without configuring a provider key; it does not prove AI generation works without a key. Provider-unconfigured behavior still needs an explicit product-level test and a clear user-facing failure/continue path.
+- Autonomous-agent progress remains **55%** as a planning estimate: this reliability fix validates the existing smoke journey but does not implement the missing observe → decide → execute → verify → adapt loop.
