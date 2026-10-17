@@ -270,3 +270,9 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - Added a regression test for duplicate participant/message orders against one persisted thread.
 - This remains intentionally conservative: distinct effects need distinct canonical evidence; unverified orders remain attempted.
 - CI pending for this change.
+
+## Explain why an order remains unverified — 2026-10-17
+
+- The next-turn outcome ledger now preserves a short reason for each unverified order: no verifier ran, canonical chat state could not be read, or no unique new persisted thread matched the order.
+- The receipt shows that reason to the next decision-maker rather than using one generic message for every failure mode. Verified outcomes still require complete positive post-write evidence.
+- Added normalizer and receipt regression coverage. CI pending.
