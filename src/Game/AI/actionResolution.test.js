@@ -249,6 +249,24 @@ test("persisted world verification derives a single region transfer from its lin
 });
 
 
+test("persisted world verification reads transfers from the canonical impacts envelope", () => {
+  const action = { id: "nested-transfer", status: "attempted", title: "Resolve the border" };
+  const before = { regionOwnershipOverrides: { "r-nested": "Old Union" } };
+  const after = { regionOwnershipOverrides: { "r-nested": "New Republic" } };
+  const outcomes = verifyPersistedWorldOutcomes(
+    [action],
+    before,
+    after,
+    "round-10-post-write",
+    [{ actionIds: ["nested-transfer"], impacts: { regionTransfers: [
+      { regionId: "r-nested", toCode: "New Republic" },
+    ] } }],
+  );
+  assert.equal(outcomes["nested-transfer"]?.verified, true);
+  assert.equal(outcomes["nested-transfer"]?.postcondition,
+    "Persisted region r-nested changed owner to New Republic.");
+});
+
 test("an order resolves only after a linked event and canonical world write survive normalization", () => {
   const queued = normalizeActionEntry({
     id: "integration-transfer-1",
