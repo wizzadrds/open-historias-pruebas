@@ -68,6 +68,56 @@ export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.m
 });
 
 
+/**
+ * Verify a narrow non-chat postcondition against canonical world snapshots.
+ * The order must explicitly carry expectedEffect: { type: "region-owner",
+ * regionId, owner }. We require a real owner change to the requested owner;
+ * narration, an already-satisfied condition, missing snapshots, and malformed
+ * expectations are not evidence. This helper is intentionally not wired into
+ * turn resolution until order IDs/expected effects are causally bound to events.
+ */
+export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, observedAt) => {
+  if (
+    !beforeWorld || typeof beforeWorld !== "object"
+    || !afterWorld || typeof afterWorld !== "object"
+    || !observedAt
+  ) return {};
+
+  const beforeOwners = beforeWorld.regionOwnershipOverrides;
+  const afterOwners = afterWorld.regionOwnershipOverrides;
+  if (
+    !beforeOwners || typeof beforeOwners !== "object" || Array.isArray(beforeOwners)
+    || !afterOwners || typeof afterOwners !== "object" || Array.isArray(afterOwners)
+  ) return {};
+
+  const outcomes = {};
+  for (const action of actions) {
+    const effect = action?.expectedEffect;
+    if (
+      action?.status !== "attempted"
+      || !action.id
+      || effect?.type !== "region-owner"
+      || typeof effect.regionId !== "string" || !effect.regionId.trim()
+      || typeof effect.owner !== "string" || !effect.owner.trim()
+    ) continue;
+
+    const regionId = effect.regionId.trim();
+    const expectedOwner = normalizeEvidenceText(effect.owner);
+    const priorOwner = normalizeEvidenceText(beforeOwners[regionId]);
+    const observedOwner = normalizeEvidenceText(afterOwners[regionId]);
+    if (!observedOwner || observedOwner !== expectedOwner || priorOwner === observedOwner) continue;
+
+    outcomes[action.id] = {
+      verified: true,
+      postcondition: `Persisted region ${regionId} changed owner to ${effect.owner.trim()}.`,
+      source: "canonical-world-state-after-write",
+      observedAt: String(observedAt),
+    };
+  }
+  return outcomes;
+};
+
+
 const normalizeEvidenceText = (value) => typeof value === "string"
   ? value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase()
   : "";
