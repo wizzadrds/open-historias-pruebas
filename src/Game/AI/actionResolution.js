@@ -25,13 +25,15 @@ export const selectPlannedActions = (actions) => actions.filter((action) => acti
  * world. Only a chat order with concrete participants and opening text has a
  * directly representable effect in the fallback engine.
  */
-export const selectFallbackChatActions = (actions) => actions.filter((action) =>
-  action.kind === "chat"
-  && Array.isArray(action.invitees)
-  && action.invitees.length > 0
-  && typeof action.chatStarter === "string"
-  && action.chatStarter.trim().length > 0
-);
+export const selectFallbackChatActions = (actions, limit = Number.POSITIVE_INFINITY) => actions
+  .filter((action) =>
+    action.kind === "chat"
+    && Array.isArray(action.invitees)
+    && action.invitees.length > 0
+    && typeof action.chatStarter === "string"
+    && action.chatStarter.trim().length > 0
+  )
+  .slice(0, Math.max(0, Number.isFinite(limit) ? Math.floor(limit) : Infinity));
 
 /**
  * Promote an attempted order only when the engine supplies a positive,
