@@ -305,6 +305,7 @@ export const renderLastTurnReceipt = (simulationHistory) => {
   const lines = [
     "[ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN]",
     "Only entries marked VERIFIED have a positive post-write state check. UNVERIFIED orders remain attempted; do not treat their intended effects as facts.",
+    "Adapt the next decision to this evidence: do not repeat a VERIFIED effect unless the current state shows it was lost. For an UNVERIFIED order, inspect the current map and records first; if the effect is still needed, choose a safer or more concrete retry, and never assume it succeeded.",
     ...outcomes.map((outcome) => outcome?.status === "verified"
       ? `- VERIFIED — ${clip(outcome.title, 100)}: ${clip(outcome.verification?.postcondition, 180)} (source: ${clip(outcome.verification?.source, 80)}).`
       : `- UNVERIFIED — ${clip(outcome?.title || "Untitled order", 100)}: ${clip(outcome?.reason || "no positive postcondition was established", 180)}`),
