@@ -337,4 +337,7 @@ test("the next jump receives verified and unverified order outcomes as a separat
   assert.match(block, /VERIFIED — Open talks with Rival: Persisted thread contains requested participants/);
   assert.match(block, /UNVERIFIED — Move the army: No fallback postcondition verifier ran for this order/);
   assert.match(block, /UNVERIFIED orders remain attempted/);
+  assert.match(block, /Adapt the next decision to this evidence/);
+  assert.match(block, /inspect the current map and records first/);
+  assert.match(block, /do not repeat a VERIFIED effect unless the current state shows it was lost/);
 });
