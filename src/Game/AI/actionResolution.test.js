@@ -195,6 +195,11 @@ test("persisted world verification requires a real region-owner change in canoni
   const before = { regionOwnershipOverrides: { "r-1": "Old Union", "r-2": "New Republic", "r-3": "Old Union", "r-4": "Old Union" } };
   const after = { regionOwnershipOverrides: { "r-1": "New Republic", "r-2": "New Republic", "r-3": "Other State", "r-4": "New Republic" } };
 
+  assert.deepEqual(
+    verifyPersistedWorldOutcomes(actions, before, after, "round-8-post-write"),
+    {},
+    "a matching world diff without explicit event-to-order linkage is insufficient",
+  );
   assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, after, "round-8-post-write", [
     { actionIds: ["take-region"] },
   ]), {
