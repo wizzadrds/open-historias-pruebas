@@ -7264,22 +7264,16 @@ const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
 
       events.push({
         date: eventDate,
-        description:
-          action.kind === "chat"
-            ? `${bundle.game.country} opens a deliberate diplomatic channel tied to ${action.title.toLowerCase()}, forcing counterparts to weigh terms instead of guessing intent.`
-            : `${bundle.game.country} begins implementing ${action.title.toLowerCase()}, producing immediate administrative and political consequences that other powers start to notice.`,
+        description: `${bundle.game.country} opens a diplomatic channel about ${action.title.toLowerCase()}. The chat is recorded with the named participants and opening message; no other consequence is inferred by the fallback engine.`,
         impacts: {
-          createdChats:
-            action.kind === "chat" && action.invitees.length > 0 && action.chatStarter
-              ? [
-                  {
-                    countries: action.invitees,
-                    openingMessage: action.chatStarter,
-                    speaker: bundle.game.country,
-                    title: action.title,
-                  },
-                ]
-              : [],
+          createdChats: [
+            {
+              countries: action.invitees,
+              openingMessage: action.chatStarter,
+              speaker: bundle.game.country,
+              title: action.title,
+            },
+          ],
           polityChanges: [],
           regionTransfers: [],
         },
