@@ -85,7 +85,7 @@ test("simulation history keeps only bounded, complete action outcome evidence", 
             observedAt: "round-4-post-write",
           },
         },
-        { id: "unverified-order", title: "Change policy", status: "unverified" },
+        { id: "unverified-order", title: "Change policy", status: "unverified", reason: "No fallback postcondition verifier ran for this order." },
         {
           id: "false-verified-order", status: "verified",
           verification: { postcondition: "It happened." },
@@ -110,7 +110,7 @@ test("simulation history keeps only bounded, complete action outcome evidence", 
         observedAt: "round-4-post-write",
       },
     },
-    { id: "unverified-order", title: "Change policy", status: "unverified" },
+    { id: "unverified-order", title: "Change policy", status: "unverified", reason: "No fallback postcondition verifier ran for this order." },
     { id: "false-verified-order", status: "unverified" },
   ]);
 });
