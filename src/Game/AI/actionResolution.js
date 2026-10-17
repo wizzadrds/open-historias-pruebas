@@ -64,3 +64,45 @@ export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.m
     },
   };
 });
+
+
+const normalizeEvidenceText = (value) => typeof value === "string"
+  ? value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").trim().toLowerCase()
+  : "";
+
+const participantNames = (chat) => (Array.isArray(chat?.countries) ? chat.countries : [])
+  .map((country) => normalizeEvidenceText(typeof country === "string" ? country : country?.name))
+  .filter(Boolean)
+  .sort();
+
+const hasOpeningText = (chat, text) => (Array.isArray(chat?.messages) ? chat.messages : [])
+  .some((message) => normalizeEvidenceText(message?.text) === normalizeEvidenceText(text));
+
+/**
+ * Build evidence only from a fresh canonical chat read after persistence.
+ * A matching message must be absent from the pre-turn snapshot, and exactly
+ * one persisted thread must match the requested participants and opening text.
+ */
+export const verifyPersistedChatOutcomes = (actions, beforeChats, afterChats, observedAt) => {
+  if (!Array.isArray(beforeChats) || !Array.isArray(afterChats) || !observedAt) return {};
+  const outcomes = {};
+  for (const action of actions) {
+    if (!action?.id || !Array.isArray(action.invitees) || !action.chatStarter?.trim()) continue;
+    const expected = action.invitees.map(normalizeEvidenceText).filter(Boolean).sort();
+    if (!expected.length) continue;
+    const text = normalizeEvidenceText(action.chatStarter);
+    const alreadyExisted = beforeChats.some((chat) =>
+      JSON.stringify(participantNames(chat)) === JSON.stringify(expected) && hasOpeningText(chat, text));
+    if (alreadyExisted) continue;
+    const matches = afterChats.filter((chat) =>
+      JSON.stringify(participantNames(chat)) === JSON.stringify(expected) && hasOpeningText(chat, text));
+    if (matches.length !== 1) continue;
+    outcomes[action.id] = {
+      verified: true,
+      postcondition: "The persisted diplomatic thread contains the requested participants and opening message.",
+      source: "canonical-chat-state-after-write",
+      observedAt: String(observedAt),
+    };
+  }
+  return outcomes;
+};
