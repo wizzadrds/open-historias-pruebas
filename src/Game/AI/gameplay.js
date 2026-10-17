@@ -276,7 +276,7 @@ import { getLibraryState } from "../../runtime/library.js";
 import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
-import { resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes } from "./actionResolution.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
@@ -8483,6 +8483,25 @@ const applySimulationResult = async ({
     writeWorldState(nextWorld),
   ]);
   await writeChatsState(chatsToWrite);
+
+  // Resolve fallback diplomatic orders only after checking the canonical chat
+  // file written by this turn. Compare against the pre-turn snapshot so an old
+  // thread or generated narration alone cannot count as a new effect.
+  if (result.clearActions) {
+    const persistedChats = await readChatsState({ force: true }).catch(() => null);
+    if (Array.isArray(persistedChats)) {
+      const outcomes = verifyPersistedChatOutcomes(
+        selectFallbackChatActions(plannedActionSnapshot),
+        baseChats,
+        persistedChats,
+        `round-${nextGame.round}-post-write`,
+      );
+      if (Object.keys(outcomes).length > 0) {
+        nextActions = applyVerifiedActionOutcomes(nextActions, outcomes);
+        await writeActionsState(nextActions);
+      }
+    }
+  }
 
   // The agents' file before this turn files anything into it, kept with the
   // restore point below so an undo takes the turn's reports and stolen copies
