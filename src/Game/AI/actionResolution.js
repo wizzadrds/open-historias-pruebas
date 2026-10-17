@@ -125,6 +125,12 @@ export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, o
 
     const regionId = effect.regionId.trim();
     const expectedOwner = normalizeEvidenceText(effect.owner);
+    // An explicit contract narrows a linked event; it must not manufacture
+    // causal evidence for a region/owner pair the event never reported.
+    const eventConfirmsEffect = eventTransfers.some((transfer) =>
+      transfer.regionId.toLowerCase() === regionId.toLowerCase()
+      && normalizeEvidenceText(transfer.owner) === expectedOwner);
+    if (!eventConfirmsEffect) continue;
     const priorOwner = normalizeEvidenceText(beforeOwners[regionId]);
     const observedOwner = normalizeEvidenceText(afterOwners[regionId]);
     if (!observedOwner || observedOwner !== expectedOwner || priorOwner === observedOwner) continue;
