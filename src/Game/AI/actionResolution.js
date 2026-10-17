@@ -72,11 +72,11 @@ export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.m
  * Verify a narrow non-chat postcondition against canonical world snapshots.
  * The order must explicitly carry expectedEffect: { type: "region-owner",
  * regionId, owner }. We require a real owner change to the requested owner;
- * narration, an already-satisfied condition, missing snapshots, and malformed
- * expectations are not evidence. This helper is intentionally not wired into
- * turn resolution until order IDs/expected effects are causally bound to events.
+ * narration, an already-satisfied condition, missing snapshots, malformed
+ * expectations, and events not explicitly linked through actionIds are not
+ * evidence.
  */
-export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, observedAt) => {
+export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, observedAt, events = []) => {
   if (
     !beforeWorld || typeof beforeWorld !== "object"
     || !afterWorld || typeof afterWorld !== "object"
@@ -93,9 +93,12 @@ export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, o
   const outcomes = {};
   for (const action of actions) {
     const effect = action?.expectedEffect;
+    const linkedEvent = Array.isArray(events) && events.some((event) =>
+      Array.isArray(event?.actionIds) && event.actionIds.map(String).includes(String(action?.id)));
     if (
       action?.status !== "attempted"
       || !action.id
+      || !linkedEvent
       || effect?.type !== "region-owner"
       || typeof effect.regionId !== "string" || !effect.regionId.trim()
       || typeof effect.owner !== "string" || !effect.owner.trim()
