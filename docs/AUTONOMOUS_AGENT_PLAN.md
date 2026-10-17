@@ -38,7 +38,7 @@ File: `src/Game/AI/actionResolution.js`
 
 - `selectPlannedActions(actions)` selects entries whose status is `planned`, so resolved/rejected history is not replayed through code paths using this helper.
 - The helper is shared with the fallback turn simulator and with planned-order counting for event-slot budgeting, keeping those selection rules consistent.
-- `resolvePlannedActions(actions, clearActions)` marks planned entries as resolved when the turn result says `clearActions` and otherwise leaves their statuses unchanged.
+- `resolvePlannedActions(actions, clearActions)` marks planned entries as `attempted` when the turn result says `clearActions` and otherwise leaves their statuses unchanged. This is intentionally not a success claim: `clearActions` is a turn-level signal, not per-order effect evidence.
 - Focused unit tests check selection, resolution branches, history preservation, and avoiding mutation of the input array.
 
 **Important limitation:** `clearActions` is a turn-level signal. It does not establish, order by order, that an order had the intended effect. The current resolution helper therefore is not a verified action-outcome system.
@@ -117,10 +117,11 @@ Then add a browser-level journey for the user-visible autonomous mode. Mocked/de
 | Queue a manual order as planned | Existing UI behavior; smoke journey exercises queueing |
 | Advance date and verify it survives reload | Covered by browser smoke journey, subject to current Chromium workflow failure |
 | Select only planned orders in shared helper paths | Implemented and unit-tested |
+| Avoid treating queue-clearing as proof of success | Implemented and unit-tested (`attempted`, not `resolved`) |
 | Apply a supported event operation to returned world state | Implemented and regression-tested |
 | Prove a specific order caused the world effect | Not implemented |
 | Verify each order against canonical persisted postconditions | Not implemented |
-| Record evidence-backed per-order outcomes | Not implemented |
+| Record evidence-backed per-order outcomes | Not implemented; current `attempted` status is deliberately non-assertive and carries no causal evidence |
 | Autonomous observe → decide → execute → verify → adapt loop | Not implemented |
 | Full end-to-end autonomous gameplay acceptance test | Not implemented |
 

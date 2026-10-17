@@ -1,3 +1,13 @@
+## 2026-10-17 — Stop treating turn completion as proof an order succeeded
+
+- Updated `src/Game/AI/actionResolution.js`: when the turn-level `clearActions` flag closes the pending queue, individual planned orders now become `attempted`, not `resolved`. The flag proves only that the turn processed/cleared the queue; it does not prove the requested effect occurred.
+- Updated `src/Game/AI/actionResolution.test.js` to assert the safer lifecycle and preserve the original ledger. Existing terminal statuses remain unchanged.
+- This is a deliberate truthfulness improvement, not the complete outcome-verification feature: per-order causal attribution, expected-postcondition checks against canonical persisted world state, and next-decision adaptation are still not implemented. Existing UI displays the status value directly, so `attempted` is visible without claiming success.
+- Verification at authoring time: inspected current branch head `04bb24ae7d79c261d81d0c65046d02ed566d0354`; the latest workflow run `39026900099` had lint passed while `verify` was still running (Chromium had not started). The new code/test patch has not yet been run locally or in CI.
+- Next: add structured per-order outcome evidence at the turn-application seam, then read persisted state back and make the next decision consume verified outcomes. PR #1 remains open and unmerged.
+
+---
+
 ## 2026-10-17 — Document autonomous-agent design and remaining work
 
 - Added [`docs/AUTONOMOUS_AGENT_PLAN.md`](./AUTONOMOUS_AGENT_PLAN.md), a durable explanation of the intended observe → decide → execute → verify → adapt loop, current code/tests, evidence limits, prioritized implementation roadmap, and acceptance criteria.

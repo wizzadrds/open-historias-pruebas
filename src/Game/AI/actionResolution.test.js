@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolvePlannedActions, selectPlannedActions } from "./actionResolution.js";
 
-test("a turn that clears actions resolves planned orders but preserves history", () => {
+test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
     { id: "a", text: "Build a bridge", status: "planned" },
     { id: "b", text: "Old order", status: "resolved" },
@@ -11,11 +11,12 @@ test("a turn that clears actions resolves planned orders but preserves history",
   ];
   const resolved = resolvePlannedActions(actions, true);
   assert.deepEqual(resolved.map(({ id, status }) => ({ id, status })), [
-    { id: "a", status: "resolved" },
+    { id: "a", status: "attempted" },
     { id: "b", status: "resolved" },
-    { id: "c", status: "resolved" },
+    { id: "c", status: "attempted" },
   ]);
   assert.deepEqual(actions.map((action) => action.status), ["planned", "resolved", "planned"], "input ledger is not mutated");
+  assert.equal(resolved[0].status, "attempted", "a turn-level signal must not claim an individual order succeeded");
 });
 
 test("a turn that does not clear actions leaves planned orders pending", () => {
