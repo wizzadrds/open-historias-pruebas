@@ -1,7 +1,7 @@
 /*! Open Historia — action resolution tests © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes } from "./actionResolution.js";
 
 test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
@@ -111,4 +111,30 @@ test("verified outcomes require a stable action ID and do not resolve on narrati
     narrated: { verified: true, summary: "We succeeded." },
   });
   assert.deepEqual(next, actions);
+});
+
+
+test("persisted chat evidence resolves only a new exact participant-and-message match", () => {
+  const actions = [
+    { id: "success", kind: "chat", invitees: ["Rival"], chatStarter: "Let us discuss terms." },
+    { id: "missing", kind: "chat", invitees: ["Neighbor"], chatStarter: "Meet with us." },
+    { id: "ambiguous", kind: "chat", invitees: ["Ally"], chatStarter: "A shared message." },
+  ];
+  const before = [{ id: "old", countries: [{ name: "Rival" }], messages: [{ text: "An older note." }] }];
+  const after = [
+    { id: "new", countries: [{ name: "Rival" }], messages: [{ text: "Let us discuss terms." }] },
+    { id: "ally-a", countries: [{ name: "Ally" }], messages: [{ text: "A shared message." }] },
+    { id: "ally-b", countries: [{ name: "Ally" }], messages: [{ text: "A shared message." }] },
+  ];
+  const outcomes = verifyPersistedChatOutcomes(actions, before, after, "round-4-post-write");
+  assert.deepEqual(Object.keys(outcomes), ["success"]);
+  assert.equal(outcomes.success.verified, true);
+  assert.equal(outcomes.success.source, "canonical-chat-state-after-write");
+});
+
+test("persisted chat verification rejects pre-existing effects and missing snapshots", () => {
+  const action = { id: "same", invitees: ["Rival"], chatStarter: "Existing message." };
+  const chats = [{ id: "thread", countries: [{ name: "Rival" }], messages: [{ text: "Existing message." }] }];
+  assert.deepEqual(verifyPersistedChatOutcomes([action], chats, chats, "round-4"), {});
+  assert.deepEqual(verifyPersistedChatOutcomes([action], null, chats, "round-4"), {});
 });
