@@ -30,7 +30,7 @@ The loop must be grounded in authoritative game state. A generated event or a su
 - Added a repository-specific GitHub Actions workflow and quality-gate documentation so this working copy receives tests, builds, lint, and a Chromium browser smoke run.
 - Added/expanded `scripts/browser-smoke.mjs`. The journey enters the app, navigates the demo/consent screens, creates a Medium scenario game, checks that the active game ID is stored in IndexedDB, reloads the app, queues a manual order, advances the simulation date, checks date persistence, and records browser errors/screenshots.
 - The browser journey is useful UI/persistence coverage, but it is not an end-to-end proof that the order caused a particular world change or that an autonomous agent is operating.
-- The latest fully inspected code-validation run before the documentation-only progress updates is [39038420188](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39038420188), on code head `47c5ea6e6e739ea1dc4fe32e73af3e964859c879`. Both `lint` and `verify` passed, including regression tests, desktop/browser builds, Chromium smoke, and Android bundle build. The subsequent commits update project documentation only; a fresh workflow run for the latest documentation commit has not yet been confirmed.
+- The latest exact-head validation is [39062310696](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39062310696), on commit `c09b6b8fbe3d63dcb59af967e599a295efd49f34`. Both `lint` and `verify` passed, including regression tests, desktop/browser builds, Chromium smoke, and Android bundle build. This commit only updates project documentation; it does not advance autonomous-agent functionality.
 
 ### Order selection and resolution helpers
 
@@ -131,7 +131,7 @@ Then add a browser-level journey for the user-visible autonomous mode. Mocked/de
 | --- | --- |
 | Create a game and persist its active ID | Covered by browser smoke journey |
 | Queue a manual order as planned | Existing UI behavior; smoke journey exercises queueing |
-| Advance date and verify it survives reload | Covered by browser smoke journey, subject to current Chromium workflow failure |
+| Advance date and verify it survives reload | Covered by the latest passing browser smoke run; a previous intermittent Chromium timeout remains a reliability risk |
 | Select only planned orders in shared helper paths | Implemented and unit-tested |
 | Avoid treating queue-clearing as proof of success | Implemented and unit-tested (`attempted`, not `resolved`) |
 | Apply a supported event operation to returned world state | Implemented and regression-tested |
