@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes, verifyPersistedWorldOutcomes } from "./actionResolution.js";
+import { normalizeActionEntry, normalizeWorldState } from "../../runtime/gameState.js";
 
 test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
@@ -245,4 +246,68 @@ test("persisted world verification derives a single region transfer from its lin
   const outcomes = verifyPersistedWorldOutcomes(actions, before, after, "round-9-post-write", events);
   assert.deepEqual(Object.keys(outcomes), ["linked-transfer"]);
   assert.equal(outcomes["linked-transfer"].verified, true);
+});
+
+
+test("an order resolves only after a linked event and canonical world write survive normalization", () => {
+  const queued = normalizeActionEntry({
+    id: "integration-transfer-1",
+    title: "Transfer the border region",
+    status: "planned",
+    expectedEffect: { type: "region-owner", regionId: "integration-region", owner: "New Republic" },
+  });
+  const attempted = resolvePlannedActions([queued], true);
+  const event = {
+    id: "integration-event-1",
+    actionIds: ["integration-transfer-1"],
+    regionTransfers: [{ regionId: "integration-region", toCode: "New Republic" }],
+  };
+
+  const before = normalizeWorldState({
+    regionOwnershipOverrides: { "integration-region": "Old Union" },
+    simulationHistory: [],
+  });
+  const after = normalizeWorldState({
+    ...before,
+    regionOwnershipOverrides: { "integration-region": "New Republic" },
+  });
+  const outcomes = verifyPersistedWorldOutcomes(
+    attempted,
+    before,
+    after,
+    "integration-round-post-write",
+    [event],
+  );
+  const resolved = applyVerifiedActionOutcomes(attempted, outcomes).map(normalizeActionEntry);
+
+  assert.equal(resolved[0].status, "resolved");
+  assert.deepEqual(resolved[0].verification, {
+    postcondition: "Persisted region integration-region changed owner to New Republic.",
+    source: "canonical-world-state-after-write",
+    observedAt: "integration-round-post-write",
+  });
+
+  const persisted = normalizeWorldState({
+    ...after,
+    simulationHistory: [{
+      mode: "jump",
+      actionOutcomes: resolved.map((action) => ({
+        id: action.id,
+        title: action.title,
+        status: action.status === "resolved" ? "verified" : "unverified",
+        ...(action.verification ? { verification: action.verification } : {}),
+      })),
+    }],
+  });
+  const reloaded = normalizeWorldState(persisted);
+  assert.deepEqual(reloaded.simulationHistory[0].actionOutcomes, [{
+    id: "integration-transfer-1",
+    title: "Transfer the border region",
+    status: "verified",
+    verification: {
+      postcondition: "Persisted region integration-region changed owner to New Republic.",
+      source: "canonical-world-state-after-write",
+      observedAt: "integration-round-post-write",
+    },
+  }]);
 });
