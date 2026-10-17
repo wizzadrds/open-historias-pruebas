@@ -428,6 +428,16 @@ export const normalizeActionEntry = (entry, index = 0) => {
       : "action";
 
   const unitRevert = normalizeUnitRevert(entry.unitRevert);
+  const rawVerification = entry.verification && typeof entry.verification === "object"
+    ? {
+      postcondition: normalizeOptionalString(entry.verification.postcondition),
+      source: normalizeOptionalString(entry.verification.source),
+      observedAt: normalizeOptionalString(entry.verification.observedAt),
+    }
+    : null;
+  const verification = rawVerification?.postcondition && rawVerification?.source && rawVerification?.observedAt
+    ? rawVerification
+    : null;
 
   return {
     chatStarter: normalizeOptionalString(entry.chatStarter || entry.openingMessage),
@@ -443,6 +453,7 @@ export const normalizeActionEntry = (entry, index = 0) => {
     text: text || rawInput || title,
     title: title || rawInput || text,
     ...(unitRevert ? { unitRevert } : {}),
+    ...(verification ? { verification } : {}),
   };
 };
 
