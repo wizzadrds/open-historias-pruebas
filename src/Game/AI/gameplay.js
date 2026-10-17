@@ -8443,16 +8443,20 @@ const applySimulationResult = async ({
   // revived thread instead of opening a fresh one. Falls back to the snapshot if
   // the read fails, which is the old behaviour and never loses a generated chat.
   let chatsToWrite;
+  let chatsBeforeWrite = null;
   try {
     // Folding (not prepending) matters as much as the re-read: a country that
     // already has an open thread with the player must have its new note land
-    // THERE, not beside it in a duplicate chat opened from scratch.
+    // THERE, not beside it in a duplicate chat opened from scratch. Keep this
+    // exact snapshot as the causal baseline for post-write outcome verification.
+    chatsBeforeWrite = normalizeChats(await readChatsState({ force: true }));
     chatsToWrite = foldGeneratedChatsIntoStorage(
-      normalizeChats(await readChatsState({ force: true })),
+      chatsBeforeWrite,
       generatedChats,
       { stampTime: nextGame.gameDate },
     );
   } catch {
+    chatsBeforeWrite = null;
     chatsToWrite = nextChats;
   }
   for (const { from, to } of renamedPolities) chatsToWrite = renamePolityInChats(chatsToWrite, from, to);
@@ -8494,12 +8498,14 @@ const applySimulationResult = async ({
     const persistedChats = await readChatsState({ force: true }).catch(() => null);
     if (Array.isArray(persistedChats)) {
       persistedChatStateAvailable = true;
-      verifiedActionOutcomes = verifyPersistedChatOutcomes(
-        selectFallbackChatActions(plannedActionSnapshot, 3),
-        baseChats,
-        persistedChats,
-        `round-${nextGame.round}-post-write`,
-      );
+      if (Array.isArray(chatsBeforeWrite)) {
+        verifiedActionOutcomes = verifyPersistedChatOutcomes(
+          selectFallbackChatActions(plannedActionSnapshot, 3),
+          chatsBeforeWrite,
+          persistedChats,
+          `round-${nextGame.round}-post-write`,
+        );
+      }
       if (Object.keys(verifiedActionOutcomes).length > 0) {
         nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
         await writeActionsState(nextActions);
@@ -8519,9 +8525,11 @@ const applySimulationResult = async ({
         ...(!verification ? {
           reason: !fallbackVerifiableActionIds.has(action.id)
             ? "No fallback postcondition verifier ran for this order."
-            : !persistedChatStateAvailable
-              ? "Canonical chat state could not be read after persistence."
-              : "No unique new persisted chat matched the requested participants and opening message.",
+            : !Array.isArray(chatsBeforeWrite)
+              ? "Canonical chat state could not be read before persistence."
+              : !persistedChatStateAvailable
+                ? "Canonical chat state could not be read after persistence."
+                : "No unique new persisted chat matched the requested participants and opening message.",
         } : {}),
         ...(verification ? { verification } : {}),
       };
