@@ -8506,7 +8506,7 @@ const applySimulationResult = async ({
 
   // Persist a compact ledger separately from generated narrative so the next
   // decision receives the verified status of every order processed this turn.
-  if (Array.isArray(nextWorld.simulationHistory) && nextWorld.simulationHistory[0]) {
+  if (result.clearActions && Array.isArray(nextWorld.simulationHistory) && nextWorld.simulationHistory[0]) {
     nextWorld.simulationHistory[0].actionOutcomes = plannedActionSnapshot.map((action) => {
       const verification = verifiedActionOutcomes[action.id];
       return {
