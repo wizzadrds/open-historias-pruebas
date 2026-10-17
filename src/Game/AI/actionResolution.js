@@ -92,13 +92,27 @@ export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, o
 
   const outcomes = {};
   for (const action of actions) {
-    const effect = action?.expectedEffect;
-    const linkedEvent = Array.isArray(events) && events.some((event) =>
-      Array.isArray(event?.actionIds) && event.actionIds.map(String).includes(String(action?.id)));
+    const linkedEvents = Array.isArray(events) ? events.filter((event) =>
+      Array.isArray(event?.actionIds) && event.actionIds.map(String).includes(String(action?.id))) : [];
+    const declaredEffect = action?.expectedEffect;
+    const eventTransfers = linkedEvents.flatMap((event) =>
+      (Array.isArray(event?.regionTransfers) ? event.regionTransfers : [])
+        .filter((transfer) => typeof transfer?.regionId === "string" && transfer.regionId.trim()
+          && typeof transfer?.toCode === "string" && transfer.toCode.trim())
+        .map((transfer) => ({ type: "region-owner", regionId: transfer.regionId.trim(), owner: transfer.toCode.trim() })),
+    );
+    const distinctTransfers = [...new Map(eventTransfers.map((effect) =>
+      [`${effect.regionId.toLowerCase()}::${normalizeEvidenceText(effect.owner)}`, effect])).values()];
+    // Prefer an explicit order contract. If none was provided, a uniquely
+    // linked event transfer supplies the narrow expected effect; ambiguous
+    // multi-transfer events are deliberately not attributed to one order.
+    const effect = declaredEffect?.type === "region-owner"
+      ? declaredEffect
+      : distinctTransfers.length === 1 ? distinctTransfers[0] : null;
     if (
       action?.status !== "attempted"
       || !action.id
-      || !linkedEvent
+      || linkedEvents.length === 0
       || effect?.type !== "region-owner"
       || typeof effect.regionId !== "string" || !effect.regionId.trim()
       || typeof effect.owner !== "string" || !effect.owner.trim()
