@@ -276,7 +276,7 @@ import { getLibraryState } from "../../runtime/library.js";
 import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
-import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes } from "./actionResolution.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes, verifyPersistedWorldOutcomes } from "./actionResolution.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
@@ -8466,6 +8466,11 @@ const applySimulationResult = async ({
   // rather than written over whichever campaign they opened instead.
   assertCampaignUnchanged(campaignId, activeCampaignId());
 
+  // Capture the canonical world immediately before this turn writes. The
+  // verifier below compares this persisted baseline with a fresh post-write read,
+  // rather than trusting the in-memory object that was passed to the writer.
+  const worldBeforePersistence = await readWorldState({ force: true }).catch(() => null);
+
   // A time skip is shown one event at a time (time.jsx), its first on screen as
   // it lands; until the reveal reaches an event, nothing the player or the AI
   // speaking to them is shown may contain it (runtime/unseenEvents.js). Marked
@@ -8492,6 +8497,22 @@ const applySimulationResult = async ({
   // file written by this turn. Compare against the pre-turn snapshot so an old
   // thread or generated narration alone cannot count as a new effect.
   let verifiedActionOutcomes = {};
+  let persistedWorldStateAvailable = false;
+  if (result.clearActions && worldBeforePersistence) {
+    const persistedWorld = await readWorldState({ force: true }).catch(() => null);
+    if (persistedWorld) {
+      persistedWorldStateAvailable = true;
+      verifiedActionOutcomes = verifyPersistedWorldOutcomes(
+        plannedActionSnapshot.map((action) => ({
+          ...action,
+          status: nextActions.find((candidate) => candidate.id === action.id)?.status || action.status,
+        })),
+        worldBeforePersistence,
+        persistedWorld,
+        `round-${nextGame.round}-post-write`,
+      );
+    }
+  }
   let persistedChatStateAvailable = false;
   const fallbackVerifiableActionIds = new Set(selectFallbackChatActions(plannedActionSnapshot, 3).map((action) => action.id));
   if (result.clearActions) {
@@ -8499,12 +8520,13 @@ const applySimulationResult = async ({
     if (Array.isArray(persistedChats)) {
       persistedChatStateAvailable = true;
       if (Array.isArray(chatsBeforeWrite)) {
-        verifiedActionOutcomes = verifyPersistedChatOutcomes(
+        const verifiedChatOutcomes = verifyPersistedChatOutcomes(
           selectFallbackChatActions(plannedActionSnapshot, 3),
           chatsBeforeWrite,
           persistedChats,
           `round-${nextGame.round}-post-write`,
         );
+        verifiedActionOutcomes = { ...verifiedActionOutcomes, ...verifiedChatOutcomes };
       }
       if (Object.keys(verifiedActionOutcomes).length > 0) {
         nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
@@ -8523,13 +8545,19 @@ const applySimulationResult = async ({
         title: normalizeString(action.title) || normalizeString(action.kind) || "Untitled order",
         status: verification ? "verified" : "unverified",
         ...(!verification ? {
-          reason: !fallbackVerifiableActionIds.has(action.id)
-            ? "No fallback postcondition verifier ran for this order."
-            : !Array.isArray(chatsBeforeWrite)
-              ? "Canonical chat state could not be read before persistence."
-              : !persistedChatStateAvailable
-                ? "Canonical chat state could not be read after persistence."
-                : "No unique new persisted chat matched the requested participants and opening message.",
+          reason: action.expectedEffect?.type === "region-owner"
+            ? !worldBeforePersistence
+              ? "Canonical world state could not be read before persistence."
+              : !persistedWorldStateAvailable
+                ? "Canonical world state could not be read after persistence."
+                : "The requested region-owner change was not observed in canonical persisted state."
+            : !fallbackVerifiableActionIds.has(action.id)
+              ? "No postcondition verifier ran for this order."
+              : !Array.isArray(chatsBeforeWrite)
+                ? "Canonical chat state could not be read before persistence."
+                : !persistedChatStateAvailable
+                  ? "Canonical chat state could not be read after persistence."
+                  : "No unique new persisted chat matched the requested participants and opening message.",
         } : {}),
         ...(verification ? { verification } : {}),
       };
