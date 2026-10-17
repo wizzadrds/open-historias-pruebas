@@ -8487,20 +8487,36 @@ const applySimulationResult = async ({
   // Resolve fallback diplomatic orders only after checking the canonical chat
   // file written by this turn. Compare against the pre-turn snapshot so an old
   // thread or generated narration alone cannot count as a new effect.
+  let verifiedActionOutcomes = {};
   if (result.clearActions) {
     const persistedChats = await readChatsState({ force: true }).catch(() => null);
     if (Array.isArray(persistedChats)) {
-      const outcomes = verifyPersistedChatOutcomes(
+      verifiedActionOutcomes = verifyPersistedChatOutcomes(
         selectFallbackChatActions(plannedActionSnapshot),
         baseChats,
         persistedChats,
         `round-${nextGame.round}-post-write`,
       );
-      if (Object.keys(outcomes).length > 0) {
-        nextActions = applyVerifiedActionOutcomes(nextActions, outcomes);
+      if (Object.keys(verifiedActionOutcomes).length > 0) {
+        nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
         await writeActionsState(nextActions);
       }
     }
+  }
+
+  // Persist a compact ledger separately from generated narrative so the next
+  // decision receives the verified status of every order processed this turn.
+  if (Array.isArray(nextWorld.simulationHistory) && nextWorld.simulationHistory[0]) {
+    nextWorld.simulationHistory[0].actionOutcomes = plannedActionSnapshot.map((action) => {
+      const verification = verifiedActionOutcomes[action.id];
+      return {
+        id: normalizeString(action.id),
+        title: normalizeString(action.title) || normalizeString(action.kind) || "Untitled order",
+        status: verification ? "verified" : "unverified",
+        ...(verification ? { verification } : {}),
+      };
+    });
+    await writeWorldState(nextWorld);
   }
 
   // The agents' file before this turn files anything into it, kept with the
