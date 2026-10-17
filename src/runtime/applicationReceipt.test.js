@@ -296,6 +296,25 @@ test("a short note survives the save: it is a kind the normalizer knows", () => 
 });
 
 
+test("an outcome-only jump is still selected as the next turn's feedback source", () => {
+  const history = [
+    {
+      mode: "jump",
+      source: "ai",
+      actionOutcomes: [
+        { id: "order-unverified", title: "Take the capital", status: "unverified", reason: "The persisted owner did not change." },
+      ],
+    },
+    // A prior receipt must not be mistaken for current-turn feedback.
+    { mode: "jump", source: "ai", receipt: { applied: { events: 8 }, notes: [] } },
+  ];
+
+  const block = renderLastTurnReceipt(history);
+  assert.match(block, /ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN/);
+  assert.match(block, /UNVERIFIED — Take the capital: The persisted owner did not change/);
+  assert.doesNotMatch(block, /Applied: 8 events/);
+});
+
 test("the next jump receives verified and unverified order outcomes as a separate ledger", () => {
   const block = renderLastTurnReceipt([{
     mode: "jump",
