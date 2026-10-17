@@ -219,7 +219,7 @@ export const selectLastJumpRecord = (simulationHistory) => {
   for (const entry of array(simulationHistory)) {
     if (!entry || typeof entry !== "object") continue;
     if (!JUMP_MODES.has(clean(entry.mode).toLowerCase())) continue;
-    return entry.receipt || clean(entry.source) === "fallback" ? entry : null;
+    return entry.receipt || clean(entry.source) === "fallback" || array(entry.actionOutcomes).length > 0 ? entry : null;
   }
   return null;
 };
