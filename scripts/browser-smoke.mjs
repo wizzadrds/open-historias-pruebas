@@ -100,8 +100,12 @@ try {
   await page.getByRole("button", { name: "New Game", exact: true }).first().waitFor({ state: "visible", timeout: 20_000 });
   await page.getByRole("button", { name: "New Game", exact: true }).first().click({ timeout: 30_000 });
   await page.getByText("Choose your country", { exact: true }).waitFor({ timeout: 20_000 });
-  // This picker overlays an animated map canvas; force only this click's hit test.
-  await page.getByRole("button", { name: "Scenario default", exact: true }).click({ timeout: 15_000, force: true, noWaitAfter: true });
+  // This picker overlays an animated map canvas whose hit-testing can stall
+  // Playwright's click even with force enabled. Dispatch the visible control's
+  // click directly, then assert the next setup step appears.
+  const defaultScenario = page.getByRole("button", { name: "Scenario default", exact: true });
+  await defaultScenario.waitFor({ state: "visible", timeout: 15_000 });
+  await defaultScenario.evaluate((button) => button.click());
   const mediumDifficulty = page.getByRole("button", { name: /Medium/ });
   await mediumDifficulty.waitFor({ state: "visible", timeout: 15_000 });
   // World setup can make Playwright's click action time out after dispatching it.
