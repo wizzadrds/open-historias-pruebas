@@ -123,3 +123,29 @@ test("simulation history bounds the number of persisted action outcomes", () => 
   assert.equal(world.simulationHistory[0].actionOutcomes.length, 80);
   assert.equal(world.simulationHistory[0].actionOutcomes.at(-1).id, "order-79");
 });
+
+test("normalizeActionEntry preserves only a well-formed region-owner expected effect", () => {
+  const valid = normalizeActionEntry({
+    id: "order-region-transfer",
+    title: "Transfer region",
+    status: "planned",
+    expectedEffect: {
+      type: "region-owner",
+      regionId: "region-7",
+      owner: "New Republic",
+      ignoredField: "not persisted",
+    },
+  });
+  assert.deepEqual(valid.expectedEffect, {
+    type: "region-owner",
+    regionId: "region-7",
+    owner: "New Republic",
+  });
+
+  const malformed = normalizeActionEntry({
+    id: "order-malformed",
+    title: "Malformed transfer",
+    expectedEffect: { type: "region-owner", regionId: "", owner: "New Republic" },
+  });
+  assert.equal("expectedEffect" in malformed, false);
+});
