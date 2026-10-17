@@ -1,7 +1,7 @@
 /*! Open Historia — action resolution tests © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions } from "./actionResolution.js";
 
 test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
@@ -58,4 +58,57 @@ test("attempted orders are not replayed as pending orders", () => {
     { id: "rejected", status: "rejected" },
   ];
   assert.deepEqual(selectPlannedActions(actions).map(({ id }) => id), ["pending"]);
+});
+
+
+test("only an order-specific positive postcondition can resolve an attempted order", () => {
+  const actions = [
+    { id: "verified", status: "attempted", title: "Open channel" },
+    { id: "negative", status: "attempted", title: "Take region" },
+    { id: "no-evidence", status: "attempted", title: "Change policy" },
+    { id: "still-planned", status: "planned", title: "Wait" },
+  ];
+  const outcomes = {
+    verified: {
+      verified: true,
+      postcondition: "A new persisted chat contains the requested participants and opening message.",
+      source: "persisted-chats",
+      observedAt: "round-3-after-write",
+    },
+    negative: {
+      verified: false,
+      postcondition: "The region owner did not change.",
+      source: "persisted-world",
+      observedAt: "round-3-after-write",
+    },
+    "no-evidence": {
+      verified: true,
+      postcondition: "Some text was generated.",
+      source: "",
+      observedAt: "round-3-after-write",
+    },
+  };
+
+  const next = applyVerifiedActionOutcomes(actions, outcomes);
+  assert.equal(next[0].status, "resolved");
+  assert.deepEqual(next[0].verification, {
+    postcondition: "A new persisted chat contains the requested participants and opening message.",
+    source: "persisted-chats",
+    observedAt: "round-3-after-write",
+  });
+  assert.equal(next[1].status, "attempted", "negative evidence is not success");
+  assert.equal(next[2].status, "attempted", "incomplete evidence is not success");
+  assert.equal(next[3].status, "planned", "the verifier cannot settle orders not attempted");
+  assert.equal(actions[0].status, "attempted", "the input history remains immutable");
+});
+
+test("verified outcomes require a stable action ID and do not resolve on narration alone", () => {
+  const actions = [
+    { status: "attempted", title: "Unnamed order" },
+    { id: "narrated", status: "attempted", title: "Victory" },
+  ];
+  const next = applyVerifiedActionOutcomes(actions, {
+    narrated: { verified: true, summary: "We succeeded." },
+  });
+  assert.deepEqual(next, actions);
 });
