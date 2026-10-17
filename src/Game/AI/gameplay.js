@@ -8510,6 +8510,7 @@ const applySimulationResult = async ({
         worldBeforePersistence,
         persistedWorld,
         `round-${nextGame.round}-post-write`,
+        freshEvents,
       );
     }
   }
