@@ -1,7 +1,7 @@
 /*! Open Historia — action resolution tests © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes } from "./actionResolution.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes, verifyPersistedWorldOutcomes } from "./actionResolution.js";
 
 test("a turn that clears the queue marks planned orders attempted, not fulfilled", () => {
   const actions = [
@@ -183,3 +183,38 @@ test("persisted chat verification requires a stable ID on the newly observed thr
 
   assert.deepEqual(verifyPersistedChatOutcomes([action], before, after, "round-6-post-write"), {});
 });
+
+test("persisted world verification requires a real region-owner change in canonical snapshots", () => {
+  const actions = [
+    { id: "take-region", status: "attempted", expectedEffect: { type: "region-owner", regionId: "r-1", owner: "New Republic" } },
+    { id: "already-owned", status: "attempted", expectedEffect: { type: "region-owner", regionId: "r-2", owner: "New Republic" } },
+    { id: "wrong-owner", status: "attempted", expectedEffect: { type: "region-owner", regionId: "r-3", owner: "New Republic" } },
+    { id: "not-attempted", status: "planned", expectedEffect: { type: "region-owner", regionId: "r-4", owner: "New Republic" } },
+    { id: "narration-only", status: "attempted", summary: "We took the region." },
+  ];
+  const before = { regionOwnershipOverrides: { "r-1": "Old Union", "r-2": "New Republic", "r-3": "Old Union", "r-4": "Old Union" } };
+  const after = { regionOwnershipOverrides: { "r-1": "New Republic", "r-2": "New Republic", "r-3": "Other State", "r-4": "New Republic" } };
+
+  assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, after, "round-8-post-write"), {
+    "take-region": {
+      verified: true,
+      postcondition: "Persisted region r-1 changed owner to New Republic.",
+      source: "canonical-world-state-after-write",
+      observedAt: "round-8-post-write",
+    },
+  });
+});
+
+test("persisted world verification rejects missing snapshots, malformed effects, and unchanged owners", () => {
+  const actions = [
+    { id: "unchanged", status: "attempted", expectedEffect: { type: "region-owner", regionId: "r-1", owner: "New Republic" } },
+    { id: "missing-region", status: "attempted", expectedEffect: { type: "region-owner", regionId: "r-2", owner: "New Republic" } },
+    { id: "malformed", status: "attempted", expectedEffect: { type: "region-owner", regionId: "", owner: "New Republic" } },
+  ];
+  const before = { regionOwnershipOverrides: { "r-1": "New Republic" } };
+  const after = { regionOwnershipOverrides: { "r-1": "New Republic" } };
+  assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, after, "round-8-post-write"), {});
+  assert.deepEqual(verifyPersistedWorldOutcomes(actions, null, after, "round-8-post-write"), {});
+  assert.deepEqual(verifyPersistedWorldOutcomes(actions, before, { regionOwnershipOverrides: [] }, "round-8-post-write"), {});
+});
+
