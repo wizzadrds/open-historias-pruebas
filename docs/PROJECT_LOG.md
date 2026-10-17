@@ -276,3 +276,9 @@ Implement an evidence contract for supported order types: stable order ID, decla
 - The next-turn outcome ledger now preserves a short reason for each unverified order: no verifier ran, canonical chat state could not be read, or no unique new persisted thread matched the order.
 - The receipt shows that reason to the next decision-maker rather than using one generic message for every failure mode. Verified outcomes still require complete positive post-write evidence.
 - Added normalizer and receipt regression coverage. CI pending.
+
+## Verify chat outcomes against the actual pre-write snapshot — 2026-10-17
+
+- Corrected the causal baseline for diplomatic-order verification: it now uses the exact canonical chat list re-read immediately before the turn writes chats, not the older state captured when the turn began.
+- This closes a concurrency gap where a thread created by the player or another writer during generation could be absent from the old snapshot and then be incorrectly counted as a new effect of the queued order.
+- If the pre-write read fails, the order stays unverified with an explicit reason; the fallback write path is not treated as proof. CI pending.
