@@ -37,12 +37,14 @@ The loop must be grounded in authoritative game state. A generated event or a su
 File: `src/Game/AI/actionResolution.js`
 
 - `selectPlannedActions(actions)` selects entries whose status is `planned`, so resolved/rejected history is not replayed through code paths using this helper.
-- The helper is shared with the fallback turn simulator and with planned-order counting for event-slot budgeting, keeping those selection rules consistent.
-- `resolvePlannedActions(actions, clearActions)` marks planned entries as `attempted` when the turn result says `clearActions` and otherwise leaves their statuses unchanged. This is intentionally not a success claim: `clearActions` is a turn-level signal, not per-order effect evidence.
-- The fallback simulator now emits a player-action event only for a chat order with named participants and an opening message, whose chat can actually be persisted. Other free-text orders remain `attempted`; the fallback explicitly says it could not verify a world-state effect rather than inventing consequences from an order title.
-- Focused unit tests check selection, resolution branches, history preservation, avoiding mutation of the input array, and ensuring fallback turns only turn concrete chat orders into action events.
+- The helper is shared with the fallback turn simulator and planned-order counting for event-slot budgeting, keeping those selection rules consistent.
+- `resolvePlannedActions(actions, clearActions)` marks planned entries as `attempted` when the turn result says `clearActions`; it does not treat a turn-level signal as proof of individual success.
+- The fallback simulator only emits a player-action event for a concrete chat order with named participants and opening text. Other free-text orders remain unverified instead of receiving fabricated consequences.
+- `verifyPersistedChatOutcomes` compares the exact pre-write canonical chat snapshot with a post-write canonical read. It requires a newly observed stable thread ID, matching participants and opening text, and a unique match. One persisted thread cannot verify duplicate orders twice.
+- The turn persistence path applies the verifier only to the bounded set of fallback chat orders actually eligible for execution. The latest simulation-history entry records per-order `verified`/`unverified` outcomes and reasons; `renderLastTurnReceipt` carries those outcomes into the next decision prompt.
+- Focused tests cover positive, missing, pre-existing, ambiguous, duplicate, appended-to-existing-thread, and missing-stable-ID cases, plus evidence normalization and bounded selection.
 
-**Important limitation:** `clearActions` is a turn-level signal. It does not establish, order by order, that an order had the intended effect. The current resolution helper therefore is not a verified action-outcome system.
+**Important limitation:** positive postcondition verification is still restricted to newly persisted fallback diplomatic-chat threads. It does not prove territory, military, policy, project, or general free-text order effects, and it is not yet a complete autonomous observe → decide → execute → verify → adapt loop.
 
 ### World-impact regression test
 
@@ -60,16 +62,17 @@ This test proves that a supported event impact can change the returned world sna
 - The UI queues manual free-text orders as `planned`.
 - The turn planner includes planned orders in its prompt/template inputs; the fallback path uses the shared planned-order selector.
 - The gameplay application stage takes generated/accepted events, applies their world impacts, updates game date/round and ledgers, and writes the resulting game/world/action data through the runtime persistence helpers.
-- The action ledger is currently resolved using the result's `clearActions` flag, rather than a verified outcome attached to each order.
+- For the fallback diplomatic-chat path, the implementation captures a canonical pre-write chat snapshot, writes chats, reads canonical chat state again, and uses the comparison to generate order-specific evidence. If the baseline or post-write read is unavailable, the outcome remains unverified.
+- The outcome ledger is stored in simulation history and appended to the next-turn receipt, so the next decision can distinguish verified effects from attempted but unverified orders.
 
-These are architecture findings, not proof that a specific order reliably produces a specific result in all runtime modes.
+These changes improve evidence for one action type; they do not establish causal attribution or reliable postcondition checks for other event/operation types.
 
 ## Progress estimate (2026-10-17)
 
 For the autonomous-player objective in this document (not the whole Open Historia game), estimate **35–45% implemented**. This is a planning judgment, not a code-coverage metric.
 
-- Done in the current slice: conservative attempted/resolved lifecycle; evidence-gated promotion helper; one persisted postcondition verifier for newly created diplomatic chat threads; verified/unverified outcomes passed into the next-turn receipt; regression and browser smoke coverage; latest inspected code CI run green.
-- Not done: general order-to-event causal identity, post-write verification for territory/military/policy/project operations, broad deterministic integration coverage, autonomous goal/order generation, adaptation to verified outcomes, and an end-to-end autonomous acceptance scenario.
+- Done in the current slice: conservative attempted/resolved lifecycle; evidence-gated promotion helper; post-write verification for newly created diplomatic chat threads; verified/unverified outcome ledger with reasons passed into the next-turn receipt; regression and browser smoke coverage. The last inspected code CI run was green on its exact code SHA, but it predates the latest documentation-only commits.
+- Not done: general order-to-event causal identity beyond the narrow fallback-chat path, post-write verification for territory/military/policy/project operations, broad deterministic integration coverage, autonomous goal/order generation, demonstrated adaptation to verified outcomes, and an end-to-end autonomous acceptance scenario.
 - Next implementation target: select one supported non-chat operation with a deterministic canonical postcondition; preserve the originating order ID through execution; re-read canonical persisted world state; test positive, negative, ambiguous and reload cases before extending the pattern to other operations.
 
 ## What remains to implement
@@ -128,10 +131,10 @@ Then add a browser-level journey for the user-visible autonomous mode. Mocked/de
 | Select only planned orders in shared helper paths | Implemented and unit-tested |
 | Avoid treating queue-clearing as proof of success | Implemented and unit-tested (`attempted`, not `resolved`) |
 | Apply a supported event operation to returned world state | Implemented and regression-tested |
-| Prove a specific order caused the world effect | Not implemented |
-| Verify each order against canonical persisted postconditions | Not implemented |
-| Record evidence-backed per-order outcomes | Not implemented; current `attempted` status is deliberately non-assertive and carries no causal evidence |
-| Autonomous observe → decide → execute → verify → adapt loop | Not implemented |
+| Prove a specific order caused the world effect | Implemented narrowly for eligible fallback diplomatic-chat orders; not general |
+| Verify each order against canonical persisted postconditions | Implemented only for newly persisted diplomatic-chat threads |
+| Record evidence-backed per-order outcomes | Implemented as a verified/unverified ledger with reasons in simulation history and the next-turn receipt |
+| Autonomous observe → decide → execute → verify → adapt loop | Not implemented end-to-end |
 | Full end-to-end autonomous gameplay acceptance test | Not implemented |
 
 ## Engineering principles
