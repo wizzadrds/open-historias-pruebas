@@ -70,11 +70,11 @@ export const applyVerifiedActionOutcomes = (actions, outcomes = {}) => actions.m
 
 /**
  * Verify a narrow non-chat postcondition against canonical world snapshots.
- * The order must explicitly carry expectedEffect: { type: "region-owner",
- * regionId, owner }. We require a real owner change to the requested owner;
- * narration, an already-satisfied condition, missing snapshots, malformed
- * expectations, and events not explicitly linked through actionIds are not
- * evidence.
+ * Prefer an explicit expectedEffect: { type: "region-owner", regionId, owner }
+ * on the order. When absent, a single unambiguous regionTransfers entry from an
+ * event linked through actionIds supplies the expectation. We require a real
+ * owner change in the canonical snapshots; narration, ambiguous transfers,
+ * already-satisfied conditions, and missing snapshots are not evidence.
  */
 export const verifyPersistedWorldOutcomes = (actions, beforeWorld, afterWorld, observedAt, events = []) => {
   if (
