@@ -3528,6 +3528,9 @@ const normalizeActionOutcomes = (value) => normalizeArray(value)
       ...(title ? { title } : {}),
       status: status === "verified" && completeVerification ? "verified" : "unverified",
       ...(status === "verified" && completeVerification ? { verification: completeVerification } : {}),
+      ...(normalizeOptionalString(entry.reason) && status !== "verified"
+        ? { reason: normalizeOptionalString(entry.reason) }
+        : {}),
     };
   })
   .filter(Boolean);
