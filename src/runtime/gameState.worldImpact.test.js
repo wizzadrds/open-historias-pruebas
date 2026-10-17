@@ -2,7 +2,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { applyEventImpactsToWorld, normalizeWorldState } from "./gameState.js";
+import { applyEventImpactsToWorld, normalizeActionEntry, normalizeWorldState } from "./gameState.js";
+
+test("action normalization preserves complete verification evidence and drops incomplete claims", () => {
+  const verified = normalizeActionEntry({
+    id: "verified-action",
+    title: "Open a diplomatic channel",
+    status: "resolved",
+    verification: {
+      postcondition: "A new persisted thread contains the requested opening message.",
+      source: "canonical-chat-state-after-write",
+      observedAt: "round-4-post-write",
+      ignoredExtra: "not part of the evidence contract",
+    },
+  });
+  assert.equal(verified.status, "resolved");
+  assert.deepEqual(verified.verification, {
+    postcondition: "A new persisted thread contains the requested opening message.",
+    source: "canonical-chat-state-after-write",
+    observedAt: "round-4-post-write",
+  });
+
+  const incomplete = normalizeActionEntry({
+    id: "incomplete-action",
+    title: "Change policy",
+    status: "attempted",
+    verification: { postcondition: "Narration says it happened." },
+  });
+  assert.equal(incomplete.status, "attempted");
+  assert.equal("verification" in incomplete, false);
+});
 
 test("an applied event adds a marker to the returned world state without mutating the input snapshot", () => {
   const before = { markers: [] };
