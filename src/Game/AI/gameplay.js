@@ -8528,10 +8528,10 @@ const applySimulationResult = async ({
         );
         verifiedActionOutcomes = { ...verifiedActionOutcomes, ...verifiedChatOutcomes };
       }
-      if (Object.keys(verifiedActionOutcomes).length > 0) {
-        nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
-        await writeActionsState(nextActions);
-      }
+    }
+    if (Object.keys(verifiedActionOutcomes).length > 0) {
+      nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
+      await writeActionsState(nextActions);
     }
   }
 
