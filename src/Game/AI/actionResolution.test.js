@@ -311,3 +311,49 @@ test("an order resolves only after a linked event and canonical world write surv
     },
   }]);
 });
+
+
+test("a linked event cannot resolve an order when the persisted world does not reflect its transfer", () => {
+  const actions = [{
+    id: "event-without-persisted-effect",
+    status: "attempted",
+    title: "Transfer region",
+  }];
+  const event = {
+    id: "generated-but-not-applied",
+    actionIds: ["event-without-persisted-effect"],
+    regionTransfers: [{ regionId: "r-pending", toCode: "New Republic" }],
+  };
+  const before = { regionOwnershipOverrides: { "r-pending": "Old Union" } };
+  const after = { regionOwnershipOverrides: { "r-pending": "Old Union" } };
+
+  const outcomes = verifyPersistedWorldOutcomes(
+    actions,
+    before,
+    after,
+    "round-10-post-write",
+    [event],
+  );
+  assert.deepEqual(outcomes, {}, "event generation is not proof of a persisted world change");
+  assert.equal(
+    applyVerifiedActionOutcomes(actions, outcomes)[0].status,
+    "attempted",
+    "an order remains attempted until its canonical postcondition is observed",
+  );
+});
+
+test("multiple distinct transfers linked to one order are not attributed ambiguously", () => {
+  const actions = [{ id: "multi-event-order", status: "attempted" }];
+  const before = { regionOwnershipOverrides: { "r-a": "Old Union", "r-b": "Old Union" } };
+  const after = { regionOwnershipOverrides: { "r-a": "New Republic", "r-b": "New Republic" } };
+  const events = [
+    { actionIds: ["multi-event-order"], regionTransfers: [{ regionId: "r-a", toCode: "New Republic" }] },
+    { actionIds: ["multi-event-order"], regionTransfers: [{ regionId: "r-b", toCode: "New Republic" }] },
+  ];
+
+  assert.deepEqual(
+    verifyPersistedWorldOutcomes(actions, before, after, "round-10-post-write", events),
+    {},
+    "two separate transfers cannot be guessed to represent one order's postcondition",
+  );
+});
