@@ -1,3 +1,12 @@
+## 2026-10-17 — Document autonomous-agent design and remaining work
+
+- Added [`docs/AUTONOMOUS_AGENT_PLAN.md`](./AUTONOMOUS_AGENT_PLAN.md), a durable explanation of the intended observe → decide → execute → verify → adapt loop, current code/tests, evidence limits, prioritized implementation roadmap, and acceptance criteria.
+- The document records the latest observed workflow run [39026240957](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39026240957): lint passed, but Chromium browser smoke failed. The branch is not fully green.
+- Key distinction: shared planned-order selection and event-impact tests are real incremental work; per-order causal attribution, persisted postcondition verification, and autonomous feedback/adaptation remain unimplemented.
+- This is documentation only; it does not implement autonomous gameplay. PR #1 remains open and unmerged.
+
+---
+
 ## 2026-10-17 — Keep planned-order counting consistent
 
 - The turn planner now uses the shared `selectPlannedActions()` helper when counting queued orders for event-slot budgeting, matching the fallback simulator's selection rule. This avoids two separate definitions of which ledger entries count as pending.
