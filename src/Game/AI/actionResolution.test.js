@@ -154,3 +154,32 @@ test("one persisted chat cannot verify duplicate orders twice", () => {
   const outcomes = verifyPersistedChatOutcomes(actions, before, after, "round-5-post-write");
   assert.deepEqual(Object.keys(outcomes), ["first"]);
 });
+
+
+test("a message added to an existing thread cannot prove creation of a new chat order", () => {
+  const action = { id: "append-only", invitees: ["Rival"], chatStarter: "A new opening message." };
+  const before = [{
+    id: "existing-thread",
+    countries: [{ name: "Rival" }],
+    messages: [{ text: "An earlier message." }],
+  }];
+  const after = [{
+    id: "existing-thread",
+    countries: [{ name: "Rival" }],
+    messages: [{ text: "An earlier message." }, { text: "A new opening message." }],
+  }];
+
+  assert.deepEqual(
+    verifyPersistedChatOutcomes([action], before, after, "round-6-post-write"),
+    {},
+    "the verifier must not confuse a changed existing thread with a newly created thread",
+  );
+});
+
+test("persisted chat verification requires a stable ID on the newly observed thread", () => {
+  const action = { id: "missing-thread-id", invitees: ["Rival"], chatStarter: "A concrete message." };
+  const before = [];
+  const after = [{ countries: ["Rival"], messages: [{ text: "A concrete message." }] }];
+
+  assert.deepEqual(verifyPersistedChatOutcomes([action], before, after, "round-6-post-write"), {});
+});
