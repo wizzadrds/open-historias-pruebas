@@ -438,6 +438,18 @@ export const normalizeActionEntry = (entry, index = 0) => {
   const verification = rawVerification?.postcondition && rawVerification?.source && rawVerification?.observedAt
     ? rawVerification
     : null;
+  const rawExpectedEffect = entry.expectedEffect && typeof entry.expectedEffect === "object"
+    ? entry.expectedEffect
+    : null;
+  const expectedEffect = rawExpectedEffect?.type === "region-owner"
+    && normalizeOptionalString(rawExpectedEffect.regionId)
+    && normalizeOptionalString(rawExpectedEffect.owner)
+    ? {
+      type: "region-owner",
+      regionId: normalizeOptionalString(rawExpectedEffect.regionId),
+      owner: normalizeOptionalString(rawExpectedEffect.owner),
+    }
+    : null;
 
   return {
     chatStarter: normalizeOptionalString(entry.chatStarter || entry.openingMessage),
@@ -453,6 +465,7 @@ export const normalizeActionEntry = (entry, index = 0) => {
     text: text || rawInput || title,
     title: title || rawInput || text,
     ...(unitRevert ? { unitRevert } : {}),
+    ...(expectedEffect ? { expectedEffect } : {}),
     ...(verification ? { verification } : {}),
   };
 };
