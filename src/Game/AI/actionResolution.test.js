@@ -375,3 +375,23 @@ test("multiple distinct transfers linked to one order are not attributed ambiguo
     "two separate transfers cannot be guessed to represent one order's postcondition",
   );
 });
+
+
+test("multiple canonical transfers in one linked event are not attributed to a single order", () => {
+  const actions = [{ id: "ambiguous-order", status: "attempted" }];
+  const beforeWorld = { regionOwnershipOverrides: { north: "A", south: "A" } };
+  const afterWorld = { regionOwnershipOverrides: { north: "B", south: "C" } };
+  const events = [{
+    actionIds: ["ambiguous-order"],
+    impacts: { regionTransfers: [
+      { regionId: "north", fromCode: "A", toCode: "B" },
+      { regionId: "south", fromCode: "A", toCode: "C" },
+    ] },
+  }];
+
+  assert.deepEqual(
+    verifyPersistedWorldOutcomes(actions, beforeWorld, afterWorld, "round-6-post-write", events),
+    {},
+    "without an explicit expectedEffect, multiple transfers are ambiguous evidence",
+  );
+});
