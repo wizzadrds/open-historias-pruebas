@@ -102,6 +102,12 @@ For the autonomous-player objective in this document (not the whole Open Histori
 3. Store the verified outcome and evidence with the order/history.
 4. Test reload/restart behavior so the verified result survives a new read, not merely an in-memory object update.
 
+### Integration seam confirmed — 2026-10-18
+
+The existing time-skip pipeline persists per-order outcomes in `simulationHistory[0].actionOutcomes`, and `renderLastTurnReceipt(normalizeWorldState(bundle.world).simulationHistory)` adds the latest receipt to each generated segment's user message. This is feedback to the text generator, not a deterministic decision adapter: there is no separately testable function that turns canonical observation + prior outcomes into a structured next action, and the current tests do not prove that the chosen action changes when the evidence changes.
+
+The next implementation must add that seam in the existing AI/turn pipeline, not a parallel simulator. Its first deterministic contract should accept a bounded observation and outcome ledger, reject malformed/missing evidence as uncertainty, and return a validated structured proposal that can still be routed through the existing action queue. Add tests showing verified, unverified, and missing outcomes lead to distinct policy outputs, without asserting that a prompt contains a phrase is equivalent to adaptation. Only mark the milestone complete once this seam is wired to the actual decision path and the full regression workflow passes.
+
 ### P3 — Implement the autonomous decision loop
 
 1. Build an observation object from canonical game date/round, player nation, world state, relevant events, available resources, queued orders, objectives, and recent verified outcomes.
