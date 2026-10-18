@@ -1,3 +1,14 @@
+## 2026-10-18 — Add a pure deterministic observation/decision slice
+
+- Added `src/Game/AI/autonomousDecision.js`: a side-effect-free adapter that projects supplied game/world snapshots and prior order outcomes into a bounded observation, then selects from caller-validated candidates deterministically.
+- Added `src/Game/AI/autonomousDecision.test.js` for canonical observation fields, planned-only pending orders, uncertain outcomes, alternatives after blocked actions, duplicate avoidance, and missing-evidence handling.
+- This is a functional but deliberately isolated first slice. It does not yet call the real decision provider, enqueue orders, invoke the turn engine, or establish end-to-end adaptation. Integration must map the real persisted state/outcome shapes into this adapter after those contracts are traced.
+- Verification: GitHub contents API accepted both source files on `agent/engineering-quality-gates`; tests have **not** been executed locally in this session. Exact-head CI must validate syntax, lint and the test suite before claiming the change verified.
+- Next: wire the adapter into the existing gameplay decision seam using actual state/outcome structures, then add an integration test proving a verified outcome changes the next choice.
+- PR #1 remains open and unmerged.
+
+---
+
 ## 2026-10-17 — Validate persisted order outcomes and end-to-end turn flow
 
 - Exact branch head `7181b3168bfa776998fe89a43ad84d491ed761ea` passed workflow run [39045607176](https://github.com/wizzadrds/open-historias-pruebas/actions/runs/39045607176): regression tests, desktop/local build, browser build, Chromium browser E2E, screenshot artifact upload, Android client bundle build, and ESLint all completed successfully.
