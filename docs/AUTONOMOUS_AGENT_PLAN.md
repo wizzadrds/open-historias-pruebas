@@ -144,7 +144,7 @@ Then add a browser-level journey for the user-visible autonomous mode. Mocked/de
 | Prove a specific order caused the world effect | Implemented narrowly for eligible fallback diplomatic-chat orders and linked region-owner transfers; not general |
 | Verify each order against canonical persisted postconditions | Implemented for newly persisted diplomatic-chat threads and one region-owner postcondition; military/policy/project/general orders remain unsupported |
 | Record evidence-backed per-order outcomes | Implemented as a verified/unverified ledger with reasons in simulation history and the next-turn receipt |
-| Autonomous observe → decide → execute → verify → adapt loop | Not implemented end-to-end |
+| Pure deterministic observation and candidate-selection adapter | Implemented as an isolated module with focused unit tests; not yet wired to the live gameplay/provider/queue path |\n| Autonomous observe → decide → execute → verify → adapt loop | Not implemented end-to-end |
 | Full end-to-end autonomous gameplay acceptance test | Not implemented |
 
 ## Engineering principles
