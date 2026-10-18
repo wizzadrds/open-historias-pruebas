@@ -1,0 +1,80 @@
+name: Working Repository Checks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: working-repo-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Build desktop/local client
+        run: npm run build
+
+      - name: Build browser client
+        run: npm run build:web
+
+      - name: Install browser smoke-test runner
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Launch the web build in Chromium
+        run: node scripts/browser-smoke.mjs
+
+      - name: Upload browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build Android client bundle
+        run: npm run build:android
+
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint

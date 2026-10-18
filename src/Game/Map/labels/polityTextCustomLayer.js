@@ -268,9 +268,9 @@ const sortPreparedEntries = (entries) => [...entries].sort((left, right) => (
 const releaseEntryGpuResources = (gl, entry) => {
   if (!entry) return;
   if (gl && !gl.isContextLost?.()) {
-    try { if (entry.ribbonBuffer) gl.deleteBuffer(entry.ribbonBuffer); } catch {}
-    try { if (entry.lineBuffer) gl.deleteBuffer(entry.lineBuffer); } catch {}
-    try { if (entry.texture) gl.deleteTexture(entry.texture); } catch {}
+    try { if (entry.ribbonBuffer) gl.deleteBuffer(entry.ribbonBuffer); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
+    try { if (entry.lineBuffer) gl.deleteBuffer(entry.lineBuffer); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
+    try { if (entry.texture) gl.deleteTexture(entry.texture); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
   }
   entry.ribbonBuffer = null;
   entry.lineBuffer = null;

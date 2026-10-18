@@ -294,3 +294,52 @@ test("a short note survives the save: it is a kind the normalizer knows", () => 
   const stored = normalizeApplicationReceipt({ applied: { events: 1 }, notes: [{ kind: "short", text: "You wrote 1 event." }, { kind: "gossip", text: "ignored" }] });
   assert.deepEqual(stored.notes, [{ kind: "short", text: "You wrote 1 event." }]);
 });
+
+
+test("an outcome-only jump is still selected as the next turn's feedback source", () => {
+  const history = [
+    {
+      mode: "jump",
+      source: "ai",
+      actionOutcomes: [
+        { id: "order-unverified", title: "Take the capital", status: "unverified", reason: "The persisted owner did not change." },
+      ],
+    },
+    // A prior receipt must not be mistaken for current-turn feedback.
+    { mode: "jump", source: "ai", receipt: { applied: { events: 8 }, notes: [] } },
+  ];
+
+  const block = renderLastTurnReceipt(history);
+  assert.match(block, /ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN/);
+  assert.match(block, /UNVERIFIED — Take the capital: The persisted owner did not change/);
+  assert.doesNotMatch(block, /Applied: 8 events/);
+});
+
+test("the next jump receives verified and unverified order outcomes as a separate ledger", () => {
+  const block = renderLastTurnReceipt([{
+    mode: "jump",
+    source: "ai",
+    receipt: { applied: { events: 1 }, notes: [] },
+    actionOutcomes: [
+      {
+        id: "chat-1",
+        title: "Open talks with Rival",
+        status: "verified",
+        verification: {
+          postcondition: "Persisted thread contains requested participants and opening message.",
+          source: "canonical-chat-state-after-write",
+        },
+      },
+      { id: "order-2", title: "Move the army", status: "unverified", reason: "No fallback postcondition verifier ran for this order." },
+    ],
+  }]);
+  assert.match(block, /ORDER OUTCOME VERIFICATION FROM YOUR LAST TURN/);
+  assert.match(block, /VERIFIED — Open talks with Rival: Persisted thread contains requested participants/);
+  assert.match(block, /UNVERIFIED — Move the army: No fallback postcondition verifier ran for this order/);
+  assert.match(block, /UNVERIFIED orders remain attempted/);
+  assert.match(block, /Adapt the next decision to this evidence/);
+  assert.match(block, /inspect the current map and records first/);
+  assert.match(block, /do not repeat a VERIFIED effect unless the current state shows it was lost/);
+  assert.ok(block.includes("VERIFIED — Open talks with Rival: Persisted thread contains requested participants and opening message. (source: canonical-chat-state-after-write). Next step: compare the current state with this postcondition;"));
+  assert.ok(block.includes("UNVERIFIED — Move the army: No fallback postcondition verifier ran for this order.. Next step: inspect the current map and records before deciding whether a concrete retry is still needed."));
+});

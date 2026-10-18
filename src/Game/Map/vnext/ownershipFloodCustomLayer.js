@@ -152,8 +152,8 @@ const politicalFillOpacityAtZoom = (zoom) => {
 
 const releaseField = (gl, field) => {
   if (!field) return;
-  try { if (field.texture) gl?.deleteTexture?.(field.texture); } catch {}
-  try { if (field.buffer) gl?.deleteBuffer?.(field.buffer); } catch {}
+  try { if (field.texture) gl?.deleteTexture?.(field.texture); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
+  try { if (field.buffer) gl?.deleteBuffer?.(field.buffer); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
   field.texture = null;
   field.buffer = null;
 };
@@ -309,7 +309,7 @@ void main() {
       return Boolean(this._program);
     }
 
-    try { if (this._program) gl.deleteProgram(this._program); } catch {}
+    try { if (this._program) gl.deleteProgram(this._program); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
     this._program = program;
     this._programVariant = shaderData.variantName;
     this._locations = {
@@ -461,7 +461,7 @@ void main() {
 
   onRemove(_map, gl) {
     this.clearTransition();
-    try { if (this._program) gl.deleteProgram(this._program); } catch {}
+    try { if (this._program) gl.deleteProgram(this._program); } catch { /* WebGL cleanup is best-effort because the context or resource may already be lost. */ }
     this._program = null;
     this._programVariant = "";
     this._failedProgramVariant = "";

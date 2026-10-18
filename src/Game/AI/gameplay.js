@@ -276,6 +276,7 @@ import { getLibraryState } from "../../runtime/library.js";
 import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
+import { applyVerifiedActionOutcomes, resolvePlannedActions, selectFallbackChatActions, selectPlannedActions, verifyPersistedChatOutcomes, verifyPersistedWorldOutcomes } from "./actionResolution.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
@@ -7243,8 +7244,11 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
 };
 
 const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
-  const plannedActions = normalizeActions(bundle.actions).filter((action) => action.status === "planned");
-  const firstThreeActions = plannedActions.slice(0, 3);
+  const plannedActions = selectPlannedActions(normalizeActions(bundle.actions));
+  // The fallback cannot translate arbitrary prose into verified world impacts.
+  // Only concrete chat orders have an effect it can actually apply (a persisted
+  // chat with named participants and a non-empty opening message).
+  const firstThreeActions = selectFallbackChatActions(plannedActions, 3);
   const events = [];
 
   // Ancient/FMG scenarios may use textual or BCE dates. Only perform calendar
@@ -7260,22 +7264,16 @@ const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
 
       events.push({
         date: eventDate,
-        description:
-          action.kind === "chat"
-            ? `${bundle.game.country} opens a deliberate diplomatic channel tied to ${action.title.toLowerCase()}, forcing counterparts to weigh terms instead of guessing intent.`
-            : `${bundle.game.country} begins implementing ${action.title.toLowerCase()}, producing immediate administrative and political consequences that other powers start to notice.`,
+        description: `${bundle.game.country} opens a diplomatic channel about ${action.title.toLowerCase()}. The chat is recorded with the named participants and opening message; no other consequence is inferred by the fallback engine.`,
         impacts: {
-          createdChats:
-            action.kind === "chat" && action.invitees.length > 0 && action.chatStarter
-              ? [
-                  {
-                    countries: action.invitees,
-                    openingMessage: action.chatStarter,
-                    speaker: bundle.game.country,
-                    title: action.title,
-                  },
-                ]
-              : [],
+          createdChats: [
+            {
+              countries: action.invitees,
+              openingMessage: action.chatStarter,
+              speaker: bundle.game.country,
+              title: action.title,
+            },
+          ],
           polityChanges: [],
           regionTransfers: [],
         },
@@ -7293,7 +7291,9 @@ const fallbackJumpSimulation = async ({ bundle, days, mode, targetDate }) => {
     const midpoint = advanceGameDate(Math.max(1, Math.round(Math.max(days, 1) / 2)));
     events.push({
       date: midpoint,
-      description: `Foreign ministries and general staffs keep adjusting to the current balance of power while ${bundle.game.country} gathers its next move.`,
+      description: plannedActions.length > 0
+        ? `The fallback engine advanced time but could not verify a world-state effect for the queued free-text order(s). They remain recorded as attempted, not fulfilled; inspect the current map and records before choosing what to do next.`
+        : `Foreign ministries and general staffs keep adjusting to the current balance of power while ${bundle.game.country} gathers its next move.`,
       impacts: {
         createdChats: [],
         polityChanges: [],
@@ -7844,10 +7844,7 @@ const applySimulationResult = async ({
     round: (baseGame.round || 1) + 1,
   });
   const plannedActionSnapshot = normalizeActions(baseActions).filter((action) => action.status === "planned");
-  let nextActions = normalizeActions(baseActions).map((action) => ({
-    ...action,
-    status: action.status === "planned" && result.clearActions ? "resolved" : action.status,
-  }));
+  let nextActions = resolvePlannedActions(normalizeActions(baseActions), result.clearActions);
   const nextChats = [...normalizeChats(baseChats)];
   // Chats this turn CREATED, kept apart from the pre-turn snapshot. A turn takes a
   // while to generate and the player can edit the chat list while it runs, so the
@@ -8446,16 +8443,20 @@ const applySimulationResult = async ({
   // revived thread instead of opening a fresh one. Falls back to the snapshot if
   // the read fails, which is the old behaviour and never loses a generated chat.
   let chatsToWrite;
+  let chatsBeforeWrite = null;
   try {
     // Folding (not prepending) matters as much as the re-read: a country that
     // already has an open thread with the player must have its new note land
-    // THERE, not beside it in a duplicate chat opened from scratch.
+    // THERE, not beside it in a duplicate chat opened from scratch. Keep this
+    // exact snapshot as the causal baseline for post-write outcome verification.
+    chatsBeforeWrite = normalizeChats(await readChatsState({ force: true }));
     chatsToWrite = foldGeneratedChatsIntoStorage(
-      normalizeChats(await readChatsState({ force: true })),
+      chatsBeforeWrite,
       generatedChats,
       { stampTime: nextGame.gameDate },
     );
   } catch {
+    chatsBeforeWrite = null;
     chatsToWrite = nextChats;
   }
   for (const { from, to } of renamedPolities) chatsToWrite = renamePolityInChats(chatsToWrite, from, to);
@@ -8464,6 +8465,11 @@ const applySimulationResult = async ({
   // turn generated for a campaign the player has since left is simply lost here
   // rather than written over whichever campaign they opened instead.
   assertCampaignUnchanged(campaignId, activeCampaignId());
+
+  // Capture the canonical world immediately before this turn writes. The
+  // verifier below compares this persisted baseline with a fresh post-write read,
+  // rather than trusting the in-memory object that was passed to the writer.
+  const worldBeforePersistence = await readWorldState({ force: true }).catch(() => null);
 
   // A time skip is shown one event at a time (time.jsx), its first on screen as
   // it lands; until the reveal reaches an event, nothing the player or the AI
@@ -8486,6 +8492,79 @@ const applySimulationResult = async ({
     writeWorldState(nextWorld),
   ]);
   await writeChatsState(chatsToWrite);
+
+  // Resolve fallback diplomatic orders only after checking the canonical chat
+  // file written by this turn. Compare against the pre-turn snapshot so an old
+  // thread or generated narration alone cannot count as a new effect.
+  let verifiedActionOutcomes = {};
+  let persistedWorldStateAvailable = false;
+  if (result.clearActions && worldBeforePersistence) {
+    const persistedWorld = await readWorldState({ force: true }).catch(() => null);
+    if (persistedWorld) {
+      persistedWorldStateAvailable = true;
+      verifiedActionOutcomes = verifyPersistedWorldOutcomes(
+        plannedActionSnapshot.map((action) => ({
+          ...action,
+          status: nextActions.find((candidate) => candidate.id === action.id)?.status || action.status,
+        })),
+        worldBeforePersistence,
+        persistedWorld,
+        `round-${nextGame.round}-post-write`,
+        freshEvents,
+      );
+    }
+  }
+  let persistedChatStateAvailable = false;
+  const fallbackVerifiableActionIds = new Set(selectFallbackChatActions(plannedActionSnapshot, 3).map((action) => action.id));
+  if (result.clearActions) {
+    const persistedChats = await readChatsState({ force: true }).catch(() => null);
+    if (Array.isArray(persistedChats)) {
+      persistedChatStateAvailable = true;
+      if (Array.isArray(chatsBeforeWrite)) {
+        const verifiedChatOutcomes = verifyPersistedChatOutcomes(
+          selectFallbackChatActions(plannedActionSnapshot, 3),
+          chatsBeforeWrite,
+          persistedChats,
+          `round-${nextGame.round}-post-write`,
+        );
+        verifiedActionOutcomes = { ...verifiedActionOutcomes, ...verifiedChatOutcomes };
+      }
+    }
+    if (Object.keys(verifiedActionOutcomes).length > 0) {
+      nextActions = applyVerifiedActionOutcomes(nextActions, verifiedActionOutcomes);
+      await writeActionsState(nextActions);
+    }
+  }
+
+  // Persist a compact ledger separately from generated narrative so the next
+  // decision receives the verified status of every order processed this turn.
+  if (result.clearActions && Array.isArray(nextWorld.simulationHistory) && nextWorld.simulationHistory[0]) {
+    nextWorld.simulationHistory[0].actionOutcomes = plannedActionSnapshot.map((action) => {
+      const verification = verifiedActionOutcomes[action.id];
+      return {
+        id: normalizeString(action.id),
+        title: normalizeString(action.title) || normalizeString(action.kind) || "Untitled order",
+        status: verification ? "verified" : "unverified",
+        ...(!verification ? {
+          reason: action.expectedEffect?.type === "region-owner"
+            ? !worldBeforePersistence
+              ? "Canonical world state could not be read before persistence."
+              : !persistedWorldStateAvailable
+                ? "Canonical world state could not be read after persistence."
+                : "The requested region-owner change was not observed in canonical persisted state."
+            : !fallbackVerifiableActionIds.has(action.id)
+              ? "No postcondition verifier ran for this order."
+              : !Array.isArray(chatsBeforeWrite)
+                ? "Canonical chat state could not be read before persistence."
+                : !persistedChatStateAvailable
+                  ? "Canonical chat state could not be read after persistence."
+                  : "No unique new persisted chat matched the requested participants and opening message.",
+        } : {}),
+        ...(verification ? { verification } : {}),
+      };
+    });
+    await writeWorldState(nextWorld);
+  }
 
   // The agents' file before this turn files anything into it, kept with the
   // restore point below so an undo takes the turn's reports and stolen copies
@@ -14192,7 +14271,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
   });
   // Guarantee at least one event per queued action, so each planned action has a
   // slot to resolve into (bounded so a huge queue can't demand absurd counts).
-  const plannedActionCount = normalizeActions(bundle.actions).filter((action) => action.status === "planned").length;
+  const plannedActionCount = selectPlannedActions(normalizeActions(bundle.actions)).length;
 
   // Long skips are generated in SEGMENTS and merged into the one round the player
   // asked for — see jumpSegments.js for why, and for the merge rules. Auto jumps
